@@ -1,0 +1,10 @@
+/*/
+.*
+
+!/lib/
+!/script/
+!/server/
+!/web/
+
+!.gitignore
+!.prettierrc

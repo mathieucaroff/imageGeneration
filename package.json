@@ -1,0 +1,30 @@
+{
+  "name": "pony-diffusion-vastai",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "workspaces": [
+    "server",
+    "web"
+  ],
+  "scripts": {
+    "dev": "bun run --filter '*' dev",
+    "build": "bun run --filter web build",
+    "start": "bun run --filter server start",
+    "vastai:status": "bun run script/status.ts",
+    "vastai:provision": "bun run script/provision-rtx4090.ts",
+    "vastai:blacklist": "bun run script/blacklist.ts",
+    "vastai:ssh": "bun run script/ssh.ts",
+    "vastai:generate": "bun run script/generate.ts",
+    "vastai:idle-stop": "bun run script/idle-stop.ts",
+    "vastai:stop-all": "bun run script/stop-all.ts",
+    "vastai:delete-all": "bun run script/delete-all.ts"
+  },
+  "devDependencies": {
+    "@types/bun": "^1.3.14",
+    "@types/node": "^26.2.0",
+    "prettier": "^3.9.6",
+    "prettier-plugin-sort-json": "^4.2.0",
+    "prettier-plugin-tailwindcss": "^0.8.1"
+  }
+}

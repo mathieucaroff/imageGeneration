@@ -1,0 +1,8 @@
+/*/
+.*
+
+!/src/
+!/public/
+
+!.gitignore
+!.oxlintrc.json

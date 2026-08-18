@@ -5,8 +5,8 @@
  * storage-only cost); pricier ones are destroyed outright instead, since
  * they're not worth paying idle storage on or preferring for reuse later.
  */
-import { destroyInstance, listInstances, setInstanceState } from "../lib/vastai"
-import { REUSE_PRICE_THRESHOLD } from "../lib/pricing"
+import { stopOrDestroyInstance } from "../lib/instance-lifecycle"
+import { listInstances } from "../lib/vastai"
 
 async function main() {
   const instances = await listInstances()
@@ -18,17 +18,7 @@ async function main() {
   }
 
   for (const instance of running) {
-    if (instance.dph_total > REUSE_PRICE_THRESHOLD) {
-      console.log(
-        `Destroying instance ${instance.id} (${instance.gpu_name}, $${instance.dph_total.toFixed(3)}/hr > $${REUSE_PRICE_THRESHOLD}/hr threshold)...`,
-      )
-      await destroyInstance(instance.id)
-    } else {
-      console.log(
-        `Stopping instance ${instance.id} (${instance.gpu_name}, $${instance.dph_total.toFixed(3)}/hr)...`,
-      )
-      await setInstanceState(instance.id, "stopped")
-    }
+    await stopOrDestroyInstance(instance)
   }
 
   console.log(`Processed ${running.length} instance(s).`)

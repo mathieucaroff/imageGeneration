@@ -5,8 +5,9 @@
  */
 import { createInstance, searchRtx4090Offers } from "../lib/vastai"
 import { loadBlacklistedMachineIds } from "../lib/history"
-import { CHECKPOINT_DIR, CHECKPOINT_FILE, CHECKPOINT_URL, COMFYUI_PORT } from "../lib/pony"
+import { COMFYUI_PORT } from "../lib/pony"
 import { MAX_PRICE_PER_HOUR } from "../lib/pricing"
+import { buildOnstartScript } from "../lib/provisioning"
 
 // No known docker image bundles Pony Diffusion V6 XL directly; it's a
 // checkpoint, not a container. This falls back to ai-dock's ComfyUI image,
@@ -16,26 +17,6 @@ const IMAGE = process.env.VASTAI_IMAGE ?? "ghcr.io/ai-dock/comfyui:latest-cuda"
 // Confirmed to fail container start with "unresolvable CDI devices ... gpu=0:
 // unknown" (broken NVIDIA CDI generation) across multiple independent hosts.
 const KNOWN_BAD_DRIVER_VERSIONS = new Set(["595.58.03"])
-
-function buildOnstartScript(): string {
-  return `#!/bin/bash
-set -uo pipefail
-mkdir -p "${CHECKPOINT_DIR}"
-DEST="${CHECKPOINT_DIR}/${CHECKPOINT_FILE}"
-if [ -s "$DEST" ]; then
-  echo "Pony Diffusion V6 XL already present, skipping download."
-else
-  echo "Downloading Pony Diffusion V6 XL..."
-  curl --fail --location --silent --show-error \\
-    --header "Authorization: Bearer \${CIVITAI_TOKEN:-}" \\
-    --output "$DEST" "${CHECKPOINT_URL}" \\
-    && echo "Pony Diffusion V6 XL ready." \\
-    || { echo "WARNING: failed to download Pony Diffusion V6 XL checkpoint."; rm -f "$DEST"; }
-fi
-  ln -sfn "$DEST" "/opt/ComfyUI/models/checkpoints/${CHECKPOINT_FILE}"
-type init.sh && init.sh
-`
-}
 
 async function main() {
   const offers = await searchRtx4090Offers(MAX_PRICE_PER_HOUR)

@@ -1,11 +1,10 @@
 #!/usr/bin/env bun
 /**
- * Stops idle instances and destroys stalled provisioning after the timeout.
+ * Stops idle instances and destroys both stalled provisioning and instances
+ * stuck during creation.
  */
-import { getLastActivityAt, recordActivity } from "../lib/history"
 import { stopOrDestroyInstance } from "../lib/instance-lifecycle"
-import { provisioningStatus } from "../lib/provisioning"
-import { destroyInstance, listInstances } from "../lib/vastai"
+import { sweepInstances } from "../lib/instance-sweep"
 
 const DEFAULT_IDLE_MINUTES = 20
 const POLL_MS = 60_000
@@ -34,51 +33,11 @@ function parseArgs(argv: string[]): { idleMinutes: number; once: boolean } {
 
 /**
  * Stops or destroys ready instances after inactivity, and destroys instances
- * that have not finished provisioning within the same timeout.
+ * that are stuck during creation or have not finished provisioning in time.
+ * The CLI's idle policy preserves cheap disks but deletes expensive instances.
  */
 async function stopIdleInstances(idleMinutes: number): Promise<void> {
-  const cutoff = Date.now() - idleMinutes * 60_000
-  const instances = await listInstances()
-
-  for (const instance of instances) {
-    const provisioning = await provisioningStatus(instance)
-    const createdAt = instance.start_date ? instance.start_date * 1000 : undefined
-    const isUnready = provisioning !== "ready" && provisioning !== "cached"
-
-    // Unready instances have no valid activity clock; use creation time as a
-    // provisioning deadline and discard them once the grace period expires.
-    if (isUnready && createdAt !== undefined && createdAt <= cutoff) {
-      console.log(
-        `Destroying unready instance ${instance.id}; it was created ${new Date(createdAt).toISOString()}.`,
-      )
-      await destroyInstance(instance.id)
-      continue
-    }
-
-    if (instance.actual_status !== "running") continue
-
-    let lastActivityAt = await getLastActivityAt(instance.id)
-    if (!lastActivityAt) {
-      // Do not start the inactivity window until the model download has
-      // completed, so slow but healthy provisioning is never stopped early.
-      if (provisioning !== "ready" && provisioning !== "cached") {
-        console.log(`Keeping instance ${instance.id}: provisioning is ${provisioning}.`)
-        continue
-      }
-      await recordActivity(instance.id)
-      console.log(`Started idle timer for ready instance ${instance.id}.`)
-      continue
-    }
-
-    if (lastActivityAt.getTime() > cutoff) continue
-
-    // The shared policy preserves cheap disks but immediately deletes
-    // expensive instances once they become idle.
-    console.log(
-      `Instance ${instance.id} is idle; last activity was ${lastActivityAt.toISOString()}.`,
-    )
-    await stopOrDestroyInstance(instance)
-  }
+  await sweepInstances({ idleMinutes, onIdle: stopOrDestroyInstance })
 }
 
 async function main() {

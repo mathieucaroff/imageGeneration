@@ -40,20 +40,21 @@ export interface Offer {
 }
 
 export interface Instance {
-  id: number
-  machine_id: number
   actual_status: string
-  start_date?: number | null
-  gpu_name: string
-  label: string | null
-  dph_total: number
   country_code?: string | null
+  cur_state: string
+  dph_total: number
   geolocation?: string | null
-  public_ipaddr?: string
+  gpu_name: string
+  id: number
+  jupyter_token?: string | null
+  label: string | null
+  machine_id: number
   ports?: Record<string, Array<{ HostIp: string; HostPort: string }>> | null
+  public_ipaddr?: string
   ssh_host?: string | null
   ssh_port?: number | null
-  jupyter_token?: string | null
+  start_date?: number | null
 }
 
 // Vast.ai mirrors Docker's port-mapping shape: instance.ports["<port>/tcp"][0].HostPort

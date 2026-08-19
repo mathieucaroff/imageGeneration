@@ -181,6 +181,17 @@ metadata even when embedded metadata is present.
 No automatic image retention or deletion policy is required. The user may
 manually delete images, thumbnails, and config files from storage.
 
+The server uses generic S3-compatible environment variable names so the storage
+provider can be changed without changing the application:
+
+- `S3_ENDPOINT`
+- `S3_ACCESS_KEY_ID`
+- `S3_SECRET_ACCESS_KEY`
+- `S3_BUCKET`
+- `S3_PUBLIC_URL`
+
+Cloudflare R2 is the current provider, but these names are not specific to R2.
+
 ### Responsive image view
 
 The image area uses a responsive wrapping grid sized by the global zoom value.

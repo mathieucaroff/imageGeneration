@@ -1,34 +1,5 @@
 import { useEffect, useMemo, useState } from "react"
 
-type Config = {
-  prompt: string
-  negative_prompt: string
-  width: number
-  height: number
-  seed: number
-  instanceId: number
-}
-type Job = {
-  id: string
-  config: Config
-  status: "queued" | "running" | "completed" | "failed"
-  position?: number
-  imageUrl?: string
-  thumbnailUrl?: string
-  error?: string
-  createdAt: string
-  startedAt?: string
-}
-type Instance = {
-  id: number
-  actual_status: string
-  provisioning: string
-  ready: boolean
-  gpu_name: string
-  dph_total: number
-  public_ipaddr?: string
-}
-
 const defaultNegative = "score_4, score_5, score_6, worst quality, low quality, blurry"
 
 async function api<T>(path: string, init?: RequestInit): Promise<T> {
@@ -43,6 +14,18 @@ async function api<T>(path: string, init?: RequestInit): Promise<T> {
 
 function randomSeed() {
   return Math.floor(Math.random() * 2 ** 32)
+}
+
+function elapsedSeconds(since: string | number | null | undefined, until: number | string): string {
+  if (!since) return "-"
+  const startedAt = typeof since === "number" ? since * 1000 : Date.parse(since)
+  const endedAt = typeof until === "number" ? until : Date.parse(until)
+  if (Number.isNaN(startedAt) || Number.isNaN(endedAt)) return "-"
+  return `${Math.max(0, Math.floor((endedAt - startedAt) / 1000))}s`
+}
+
+function shortInstanceId(id: number) {
+  return String(id).slice(-3)
 }
 
 function tags(value: string) {
@@ -143,6 +126,7 @@ export function App() {
   const [busy, setBusy] = useState(false)
   const [blocks, setBlocks] = useState<Record<string, string[]>>({})
   const [previous, setPrevious] = useState<Config>()
+  const [now, setNow] = useState(Date.now())
 
   async function refresh() {
     const [nextInstances, nextJobs] = await Promise.all([
@@ -172,6 +156,14 @@ export function App() {
       window.clearInterval(timer)
     }
   }, [authenticated])
+  const hasLiveAge =
+    instances.some((instance) => !instance.ready) ||
+    jobs.some((job) => job.status === "queued" || job.status === "running")
+  useEffect(() => {
+    if (!hasLiveAge) return
+    const timer = window.setInterval(() => setNow(Date.now()), 1000)
+    return () => window.clearInterval(timer)
+  }, [hasLiveAge])
   const activeInstances = instances.filter((instance) => instance.ready)
   const jobsById = useMemo(() => new Map(jobs.map((job) => [job.id, job])), [jobs])
 
@@ -378,7 +370,10 @@ export function App() {
             {instances.map((instance) => (
               <div className="instance-chip" key={instance.id}>
                 <span className={`status-dot ${instance.ready ? "ready" : "muted"}`} />#
-                {instance.id} {instance.provisioning}
+                {shortInstanceId(instance.id)} {instance.provisioning}
+                {!instance.ready && (
+                  <span className="instance-age">{elapsedSeconds(instance.start_date, now)}</span>
+                )}
                 <button
                   title="Stop instance"
                   onClick={() => {
@@ -428,6 +423,7 @@ export function App() {
                       job={job}
                       previous={previous}
                       onResend={() => resend(job)}
+                      now={now}
                       key={job.id}
                     />
                   ))}
@@ -440,7 +436,7 @@ export function App() {
                   <span>SET</span>
                 </div>
                 <div className="block-images">
-                  <JobTile job={job} previous={previous} onResend={() => resend(job)} />
+                  <JobTile job={job} previous={previous} onResend={() => resend(job)} now={now} />
                 </div>
               </section>
             ))}
@@ -462,10 +458,12 @@ function JobTile({
   job,
   previous,
   onResend,
+  now,
 }: {
   job: Job
   previous?: Config
   onResend: () => void
+  now: number
 }) {
   return (
     <article className={`image-tile ${job.status}`}>
@@ -499,6 +497,7 @@ function JobTile({
           <span className={previous && previous.seed !== job.config.seed ? "changed" : ""}>
             seed {job.config.seed}
           </span>
+          <span className="job-age">{elapsedSeconds(job.createdAt, job.finishedAt ?? now)}</span>
           <span className="tile-status">{job.status}</span>
         </div>
       </div>

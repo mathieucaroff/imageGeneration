@@ -253,7 +253,7 @@ select:focus {
   white-space: nowrap;
 }
 .zoom-control input {
-  width: 120px;
+  width: 400px;
   height: auto;
   padding: 0;
   accent-color: #cfdc6a;

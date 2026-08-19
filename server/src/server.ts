@@ -6,7 +6,7 @@ import sharp from "sharp"
 import { downloadImage, queuePrompt, waitForImages, type GenerationParams } from "../../lib/comfyui"
 import { recordActivity } from "../../lib/history"
 import { sweepInstances } from "../../lib/instance-sweep"
-import { CHECKPOINT_FILE, COMFYUI_PORT } from "../../lib/pony"
+import { CHECKPOINT_FILE, COMFYUI_PORT, withScoreTags } from "../../lib/pony"
 import { buildOnstartScript, provisioningStatus } from "../../lib/provisioning"
 import { stopOrDestroyInstance } from "../../lib/instance-lifecycle"
 import {
@@ -27,35 +27,6 @@ const sessions = new Set<string>()
 const listeners = new Set<(event: string, payload: unknown) => void>()
 const queue: string[] = []
 let workerRunning = false
-
-type JobStatus = "queued" | "running" | "completed" | "failed"
-type JobConfig = {
-  prompt: string
-  negative_prompt: string
-  width: number
-  height: number
-  seed: number
-  instanceId: number
-  submittedInstanceId: number
-  steps: number
-  cfg: number
-  sampler: string
-  scheduler: string
-  denoise: number
-  model: string
-}
-type Job = {
-  id: string
-  config: JobConfig
-  status: JobStatus
-  createdAt: string
-  startedAt?: string
-  finishedAt?: string
-  error?: string
-  imageUrl?: string
-  thumbnailUrl?: string
-  imageKey?: string
-}
 
 const jobs = new Map<string, Job>()
 
@@ -148,7 +119,7 @@ async function processJob(job: Job) {
   broadcast("job", publicJob(job))
   await recordActivity(endpoint.instance.id)
   const params: GenerationParams = {
-    prompt: job.config.prompt,
+    prompt: withScoreTags(job.config.prompt),
     negative: job.config.negative_prompt,
     steps: job.config.steps,
     cfg: job.config.cfg,

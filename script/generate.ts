@@ -6,7 +6,7 @@
 import { mkdir } from "node:fs/promises"
 import { downloadImage, queuePrompt, waitForImages } from "../lib/comfyui"
 import { recordActivity } from "../lib/history"
-import { CHECKPOINT_FILE, COMFYUI_PORT, SCORE_TAGS } from "../lib/pony"
+import { CHECKPOINT_FILE, COMFYUI_PORT, withScoreTags } from "../lib/pony"
 import { findExposedPort, listInstances } from "../lib/vastai"
 
 const USAGE =
@@ -69,22 +69,7 @@ function parseArgs(argv: string[]): Args {
   }
 }
 
-// CivitAI recommends prepending the score tags to every prompt; skip --score-tags ""
-// entirely, and only add whichever individual tags the prompt doesn't already have.
-function withScoreTags(args: Args): string {
-  if (args.scoreTags === "") return args.prompt
-  const tags = (args.scoreTags ?? SCORE_TAGS)
-    .split(",")
-    .map((tag) => tag.trim())
-    .filter(Boolean)
-  const loweredPrompt = args.prompt.toLowerCase()
-  const missing = tags.filter((tag) => !loweredPrompt.includes(tag.toLowerCase()))
-  return [...missing, args.prompt].join(", ")
-}
-
-async function resolveEndpoint(
-  args: Args,
-): Promise<{
+async function resolveEndpoint(args: Args): Promise<{
   host: string
   port: number
   authToken: string | undefined
@@ -139,7 +124,7 @@ async function main() {
   const { host, port, authToken, instanceId } = await resolveEndpoint(args)
   const baseUrl = `http://${host}:${port}`
 
-  const prompt = withScoreTags(args)
+  const prompt = withScoreTags(args.prompt, args.scoreTags)
   console.log(`Sending prompt to ComfyUI at ${baseUrl}...`)
   if (instanceId) await recordActivity(instanceId)
   const promptId = await queuePrompt(

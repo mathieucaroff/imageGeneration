@@ -13,6 +13,12 @@ function country(instance: Instance): string {
   return instance.country_code ?? instance.geolocation?.split(",").at(-1)?.trim() ?? "-"
 }
 
+function instanceAge(instance: Instance): string {
+  if (!instance.start_date) return "-"
+  const elapsedSeconds = Math.max(0, Math.floor(Date.now() / 1000 - instance.start_date))
+  return `${Math.floor(elapsedSeconds / 60)}m ${elapsedSeconds % 60}s`
+}
+
 function sshCommand(instance: Instance): string {
   return `bun run vastai:ssh -- --instance ${instance.id}`
 }
@@ -57,6 +63,7 @@ async function main() {
     sorted.map((i, index) => ({
       id: i.id,
       status: i.actual_status,
+      age: instanceAge(i),
       "$/hr": i.dph_total.toFixed(3),
       "..": country(i),
       host: i.public_ipaddr ?? "-",

@@ -1,5 +1,6 @@
-import type { CSSProperties } from "react"
+import { useState, type CSSProperties } from "react"
 import { Button } from "./components/Button"
+import { Modal } from "./components/Modal"
 import { diffTags, elapsedSeconds } from "./utils"
 
 function DiffText({ value, previous }: { value: string; previous?: string }) {
@@ -25,18 +26,30 @@ function JobTile({
   job,
   previous,
   onResend,
+  onOpen,
   now,
+  zoom,
 }: {
   job: Job
   previous?: Config
   onResend: () => void
+  onOpen: () => void
   now: number
+  zoom: number
 }) {
+  const imageUrl = zoom > 350 && job.imageUrl ? job.imageUrl : job.thumbnailUrl
   return (
     <article className="w-[min(var(--tile-size),100%)] max-w-full min-w-0">
       <div className="group relative aspect-square overflow-hidden bg-[#10120f]">
-        {job.status === "completed" && job.thumbnailUrl ? (
-          <img className="size-full object-cover" src={job.thumbnailUrl} alt={job.config.prompt} />
+        {job.status === "completed" && imageUrl ? (
+          <button
+            className="block size-full cursor-zoom-in"
+            type="button"
+            title="View full image"
+            onClick={onOpen}
+          >
+            <img className="size-full object-cover" src={imageUrl} alt={job.config.prompt} />
+          </button>
         ) : (
           <div
             className={`grid size-full place-content-center justify-items-center gap-2 p-5 text-center font-['DM_Mono'] text-xs ${job.status === "failed" ? "text-[#dc9b8f]" : "text-[#cfdc6a]"}`}
@@ -104,6 +117,7 @@ export function Gallery({
   onRefresh: () => void
   onResend: (job: Job) => void
 }) {
+  const [selectedJob, setSelectedJob] = useState<Job>()
   const groupedIds = new Set(blocks.flatMap((block) => block.jobs.map((job) => job.id)))
   const ungrouped = jobs.filter((job) => !groupedIds.has(job.id))
   return (
@@ -161,7 +175,9 @@ export function Gallery({
                   job={job}
                   previous={previous}
                   onResend={() => onResend(job)}
+                  onOpen={() => setSelectedJob(job)}
                   now={now}
+                  zoom={zoom}
                   key={job.id}
                 />
               ))}
@@ -174,7 +190,14 @@ export function Gallery({
               SET
             </div>
             <div className="flex flex-wrap items-start gap-3">
-              <JobTile job={job} previous={previous} onResend={() => onResend(job)} now={now} />
+              <JobTile
+                job={job}
+                previous={previous}
+                onResend={() => onResend(job)}
+                onOpen={() => setSelectedJob(job)}
+                now={now}
+                zoom={zoom}
+              />
             </div>
           </section>
         ))}
@@ -188,6 +211,23 @@ export function Gallery({
           </div>
         )}
       </div>
+      {selectedJob?.imageUrl && (
+        <Modal
+          labelledBy="image-viewer-title"
+          maxWidth="max-w-[calc(100vw-4rem)]"
+          onBackdropClick={() => setSelectedJob(undefined)}
+          unframed
+        >
+          <h2 className="sr-only" id="image-viewer-title">
+            {selectedJob.config.prompt}
+          </h2>
+          <img
+            className="max-h-[calc(100vh-4rem)] max-w-full object-contain"
+            src={selectedJob.imageUrl}
+            alt={selectedJob.config.prompt}
+          />
+        </Modal>
+      )}
     </main>
   )
 }

@@ -8,6 +8,11 @@ function isStopped(instance: Instance) {
   return instance.actual_status === "stopped" || instance.cur_state === "stopped"
 }
 
+type PendingAction =
+  | { kind: "delete"; instance: Instance }
+  | { kind: "stop"; instance: Instance }
+  | { kind: "stop-all" }
+
 export function Fleet({
   instances,
   now,
@@ -17,7 +22,17 @@ export function Fleet({
   now: number
   onAction: (path: string, init?: RequestInit) => void
 }) {
-  const [instanceToDelete, setInstanceToDelete] = useState<Instance>()
+  const [pendingAction, setPendingAction] = useState<PendingAction>()
+
+  function confirmAction() {
+    if (!pendingAction) return
+    if (pendingAction.kind === "delete")
+      onAction(`/instances/${pendingAction.instance.id}`, { method: "DELETE" })
+    else if (pendingAction.kind === "stop")
+      onAction(`/instances/${pendingAction.instance.id}/stop`, { method: "POST" })
+    else onAction("/instances/stop-all", { method: "POST" })
+    setPendingAction(undefined)
+  }
 
   return (
     <>
@@ -40,9 +55,9 @@ export function Fleet({
               variant="quiet"
               title={isStopped(instance) ? "Delete instance" : "Stop instance"}
               onClick={() => {
-                if (isStopped(instance)) setInstanceToDelete(instance)
-                else if (window.confirm(`Stop instance #${instance.id}?`))
-                  onAction(`/instances/${instance.id}/stop`, { method: "POST" })
+                setPendingAction(
+                  isStopped(instance) ? { kind: "delete", instance } : { kind: "stop", instance },
+                )
               }}
             >
               ×
@@ -57,38 +72,40 @@ export function Fleet({
         </Button>
         <Button
           className="border-[#5b3b37] px-3 py-2 text-[12px] text-[#db9d91]"
-          onClick={() => {
-            if (window.confirm("Stop all instances?"))
-              onAction("/instances/stop-all", { method: "POST" })
-          }}
+          onClick={() => setPendingAction({ kind: "stop-all" })}
         >
           Stop all
         </Button>
       </div>
-      {instanceToDelete && (
-        <Modal labelledBy="delete-instance-title">
-          <h2 className="font-['Fraunces'] text-xl text-[#e9e5dc]" id="delete-instance-title">
-            Delete instance?
+      {pendingAction && (
+        <Modal labelledBy="confirm-fleet-action-title">
+          <h2 className="font-['Fraunces'] text-xl text-[#e9e5dc]" id="confirm-fleet-action-title">
+            {pendingAction.kind === "delete"
+              ? "Delete instance?"
+              : pendingAction.kind === "stop"
+                ? "Stop instance?"
+                : "Stop all instances?"}
           </h2>
           <p className="mt-2 text-sm leading-relaxed text-[#bfc2b5]">
-            Instance #{shortInstanceId(instanceToDelete.id)} is stopped. Deleting it is permanent.
+            {pendingAction.kind === "delete"
+              ? `Instance #${shortInstanceId(pendingAction.instance.id)} is stopped. Deleting it is permanent.`
+              : pendingAction.kind === "stop"
+                ? `Stop instance #${shortInstanceId(pendingAction.instance.id)}?`
+                : "Stop every active instance in the fleet?"}
           </p>
           <div className="mt-5 flex justify-end gap-3">
             <Button
               className="bg-transparent px-3 py-2 text-xs"
-              onClick={() => setInstanceToDelete(undefined)}
+              onClick={() => setPendingAction(undefined)}
             >
               Cancel
             </Button>
             <Button
               className="px-3 py-2 text-xs font-bold"
-              variant="danger"
-              onClick={() => {
-                onAction(`/instances/${instanceToDelete.id}`, { method: "DELETE" })
-                setInstanceToDelete(undefined)
-              }}
+              variant={pendingAction.kind === "delete" ? "danger" : "primary"}
+              onClick={confirmAction}
             >
-              Delete instance
+              {pendingAction.kind === "delete" ? "Delete instance" : "Stop instances"}
             </Button>
           </div>
         </Modal>

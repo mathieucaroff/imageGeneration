@@ -1,5 +1,8 @@
 import { useState, type FormEvent } from "react"
 import { api } from "./api"
+import { Button } from "./components/Button"
+import { ErrorNotice } from "./components/ErrorNotice"
+import { FormField } from "./components/FormField"
 
 export function Login({ onLogin }: { onLogin: () => void }) {
   const [password, setPassword] = useState("")
@@ -21,8 +24,7 @@ export function Login({ onLogin }: { onLogin: () => void }) {
       <h1 className="mt-4 font-['Fraunces'] text-[42px] font-semibold">Private image studio</h1>
       <p className="mb-8 text-[13px] text-[#92988b]">Connect to your Pony Diffusion workspace.</p>
       <form className="grid w-[min(330px,calc(100vw-48px))] gap-3" onSubmit={submit}>
-        <label className="grid gap-2 text-[11px] text-[#aeb1a5]" htmlFor="password">
-          Password
+        <FormField label="Password" htmlFor="password">
           <input
             className="h-10 border border-[#3a3e37] bg-[#20231f] px-3 text-[13px] text-[#e7e5dc] outline-none focus:border-[#bfc963]"
             id="password"
@@ -31,18 +33,15 @@ export function Login({ onLogin }: { onLogin: () => void }) {
             value={password}
             onChange={(event) => setPassword(event.target.value)}
           />
-        </label>
-        <button
-          className="flex justify-between bg-[#d4df6f] px-4 py-3 text-[12px] font-bold text-[#20241d] hover:bg-[#e3ec86]"
+        </FormField>
+        <Button
+          className="flex justify-between px-4 py-3 text-[12px] font-bold"
+          variant="primary"
           type="submit"
         >
           Enter studio
-        </button>
-        {error && (
-          <div className="border border-[#71413a] bg-[#442b28] p-3 text-[11px] text-[#efb3a6]">
-            {error}
-          </div>
-        )}
+        </Button>
+        {error && <ErrorNotice>{error}</ErrorNotice>}
       </form>
     </main>
   )

@@ -1,10 +1,11 @@
 import { useEffect, useMemo, useState, type FormEvent } from "react"
 import { api } from "./api"
+import { Button } from "./components/Button"
+import { StatusDot } from "./components/StatusDot"
 import { Fleet } from "./Fleet"
 import { Gallery } from "./Gallery"
 import { GenerationPanel } from "./GenerationPanel"
 import { Login } from "./Login"
-import type { Config, Instance, Job } from "./types"
 import { randomSeed } from "./utils"
 
 const defaultNegative = "score_4, score_5, score_6, worst quality, low quality, blurry"
@@ -141,16 +142,17 @@ export function App() {
           <span>pony studio</span>
         </div>
         <div className="flex items-center gap-3 text-sm">
-          <span className="inline-block size-[7px] rounded-full bg-[#b8c457] shadow-[0_0_0_4px_#b8c4571c]" />
+          <StatusDot ready />
           {readyCount} ready{" "}
-          <button
-            className="ml-3 text-xs text-[#aeb1a5]"
+          <Button
+            className="ml-3 text-xs"
+            variant="quiet"
             onClick={() =>
               api("/auth/logout", { method: "POST" }).then(() => setAuthenticated(false))
             }
           >
             Sign out
-          </button>
+          </Button>
         </div>
       </header>
       <div className="grid min-h-[calc(100vh-68px)] md:grid-cols-[minmax(310px,350px)_1fr]">

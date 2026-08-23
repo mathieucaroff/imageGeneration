@@ -1,5 +1,5 @@
 import type { CSSProperties } from "react"
-import type { Config, Job } from "./types"
+import { Button } from "./components/Button"
 import { diffTags, elapsedSeconds } from "./utils"
 
 function DiffText({ value, previous }: { value: string; previous?: string }) {
@@ -56,12 +56,13 @@ function JobTile({
           </div>
         )}
         <div className="absolute inset-x-0 bottom-0 flex justify-end bg-linear-to-t from-[#080a08dd] to-transparent p-2.5 opacity-0 transition-opacity group-hover:opacity-100">
-          <button
-            className="border border-[#d4df6f] bg-[#d4df6f] px-2 py-1.5 text-[11px] font-bold text-[#20241d]"
+          <Button
+            className="px-2 py-1.5 text-[11px] font-bold"
+            variant="primary"
             onClick={onResend}
           >
             ↻ Re-send
-          </button>
+          </Button>
         </div>
       </div>
       <div className="pt-3">
@@ -132,13 +133,13 @@ export function Gallery({
               {zoom}px
             </output>
           </label>
-          <button
-            className="border border-[#42473d] bg-[#20231f] px-2 py-1 text-lg text-[#c5c9b8]"
+          <Button
+            className="px-2 py-1 text-lg"
             title="Refresh instances and jobs"
             onClick={onRefresh}
           >
             ⟳
-          </button>
+          </Button>
         </div>
       </div>
       <div className="grid gap-7 pt-7" style={{ "--tile-size": `${zoom}px` } as CSSProperties}>

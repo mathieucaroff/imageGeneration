@@ -105,7 +105,7 @@ The server will expose api endpoints to:
 
 - status: allow the frontend to know how many instances are present and what their state are.
 - start: spin up an existing, stopped instance
-- provisionning: spin up a new instance
+- provisioning: spin up a new instance
 - stopping: stop an existing instance, or delete it if its rates exceed the threshold
 - deletion: delete an existing instance
 - stop-all: stop all eligible instances

@@ -23,6 +23,7 @@ type Job = {
 type Instance = {
   id: number
   actual_status: string
+  cur_state: string
   provisioning: string
   ready: boolean
   gpu_name: string

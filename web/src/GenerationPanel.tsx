@@ -1,5 +1,7 @@
 import type { FormEvent } from "react"
-import type { Instance } from "./types"
+import { Button } from "./components/Button"
+import { ErrorNotice } from "./components/ErrorNotice"
+import { FormField } from "./components/FormField"
 import { randomSeed } from "./utils"
 
 type Props = {
@@ -36,8 +38,7 @@ export function GenerationPanel(props: Props) {
         <em className="text-[#cfdc6a]">strange.</em>
       </h1>
       <form className="grid max-w-[620px] gap-5" onSubmit={props.onSubmit}>
-        <label className="grid gap-2 text-[11px] text-[#aeb1a5]">
-          Prompt
+        <FormField label="Prompt">
           <textarea
             className="resize-y border border-[#3a3e37] bg-[#20231f] p-3 text-[13px] leading-relaxed text-[#e7e5dc] outline-none focus:border-[#bfc963]"
             rows={5}
@@ -46,19 +47,17 @@ export function GenerationPanel(props: Props) {
             onChange={(event) => props.onPrompt(event.target.value)}
             placeholder="a luminous creature in a glasshouse..."
           />
-        </label>
-        <label className="grid gap-2 text-[11px] text-[#aeb1a5]">
-          Negative prompt
+        </FormField>
+        <FormField label="Negative prompt">
           <textarea
             className="resize-y border border-[#3a3e37] bg-[#20231f] p-3 text-[13px] leading-relaxed text-[#e7e5dc] outline-none focus:border-[#bfc963]"
             rows={3}
             value={props.negative}
             onChange={(event) => props.onNegative(event.target.value)}
           />
-        </label>
+        </FormField>
         <div className="grid grid-cols-2 gap-3">
-          <label className="grid gap-2 text-[11px] text-[#aeb1a5]">
-            Width
+          <FormField label="Width">
             <input
               className={field}
               type="number"
@@ -68,9 +67,8 @@ export function GenerationPanel(props: Props) {
               value={props.width}
               onChange={(event) => props.onWidth(Number(event.target.value))}
             />
-          </label>
-          <label className="grid gap-2 text-[11px] text-[#aeb1a5]">
-            Height
+          </FormField>
+          <FormField label="Height">
             <input
               className={field}
               type="number"
@@ -80,10 +78,9 @@ export function GenerationPanel(props: Props) {
               value={props.height}
               onChange={(event) => props.onHeight(Number(event.target.value))}
             />
-          </label>
+          </FormField>
         </div>
-        <label className="grid gap-2 text-[11px] text-[#aeb1a5]">
-          Seed
+        <FormField label="Seed">
           <div className="flex gap-1">
             <input
               className={field}
@@ -91,18 +88,18 @@ export function GenerationPanel(props: Props) {
               value={props.seed}
               onChange={(event) => props.onSeed(Number(event.target.value))}
             />
-            <button
-              className="w-10 border border-[#3a3e37] bg-[#2a2d27] text-xl text-[#cfdc6a]"
+            <Button
+              className="w-10 border-[#3a3e37] bg-[#2a2d27] text-xl text-[#cfdc6a]"
+              variant="secondary"
               type="button"
               title="Randomize seed"
               onClick={() => props.onSeed(randomSeed())}
             >
               ↻
-            </button>
+            </Button>
           </div>
-        </label>
-        <label className="grid gap-2 text-[11px] text-[#aeb1a5]">
-          Ready instance
+        </FormField>
+        <FormField label="Ready instance">
           <select
             className={field}
             value={props.instanceId}
@@ -118,20 +115,17 @@ export function GenerationPanel(props: Props) {
               </option>
             ))}
           </select>
-        </label>
-        <button
-          className="flex justify-between bg-[#d4df6f] px-4 py-3 text-[12px] font-bold text-[#20241d] hover:bg-[#e3ec86] disabled:cursor-not-allowed disabled:opacity-45"
+        </FormField>
+        <Button
+          className="flex justify-between px-4 py-3 text-[12px] font-bold disabled:cursor-not-allowed disabled:opacity-45"
+          variant="primary"
           disabled={props.busy || props.instanceId === ""}
           type="submit"
         >
           {props.busy ? "Queueing..." : "Generate image"}
           <span className="text-lg">↗</span>
-        </button>
-        {props.error && (
-          <div className="border border-[#71413a] bg-[#442b28] p-3 text-[11px] text-[#efb3a6]">
-            {props.error}
-          </div>
-        )}
+        </Button>
+        {props.error && <ErrorNotice>{props.error}</ErrorNotice>}
       </form>
       <div className="mt-10 grid gap-2 border-t border-[#30332e] pt-5">
         <span className="font-['DM_Mono'] text-[10px] tracking-[.14em] text-[#8d9286]">

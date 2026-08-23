@@ -1,115 +1,13 @@
-import { useEffect, useMemo, useState } from "react"
+import { useEffect, useMemo, useState, type FormEvent } from "react"
+import { api } from "./api"
+import { Fleet } from "./Fleet"
+import { Gallery } from "./Gallery"
+import { GenerationPanel } from "./GenerationPanel"
+import { Login } from "./Login"
+import type { Config, Instance, Job } from "./types"
+import { randomSeed } from "./utils"
 
 const defaultNegative = "score_4, score_5, score_6, worst quality, low quality, blurry"
-
-async function api<T>(path: string, init?: RequestInit): Promise<T> {
-  const response = await fetch(`/api${path}`, {
-    ...init,
-    headers: { "Content-Type": "application/json", ...init?.headers },
-  })
-  const data = (await response.json().catch(() => ({}))) as T & { error?: string }
-  if (!response.ok) throw new Error(data.error ?? `Request failed (${response.status})`)
-  return data
-}
-
-function randomSeed() {
-  return Math.floor(Math.random() * 2 ** 32)
-}
-
-function elapsedSeconds(since: string | number | null | undefined, until: number | string): string {
-  if (!since) return "-"
-  const startedAt = typeof since === "number" ? since * 1000 : Date.parse(since)
-  const endedAt = typeof until === "number" ? until : Date.parse(until)
-  if (Number.isNaN(startedAt) || Number.isNaN(endedAt)) return "-"
-  return `${Math.max(0, Math.floor((endedAt - startedAt) / 1000))}s`
-}
-
-function shortInstanceId(id: number) {
-  return String(id).slice(-3)
-}
-
-function tags(value: string) {
-  return value
-    .split(",")
-    .map((tag) => tag.trim())
-    .filter(Boolean)
-}
-
-function diffTags(current: string, previous?: string) {
-  const oldTags = tags(previous ?? "")
-  const oldCounts = new Map<string, number>()
-  oldTags.forEach((tag) =>
-    oldCounts.set(tag.toLowerCase(), (oldCounts.get(tag.toLowerCase()) ?? 0) + 1),
-  )
-  return tags(current)
-    .map((tag) => {
-      const key = tag.toLowerCase()
-      const count = oldCounts.get(key) ?? 0
-      if (count > 0) {
-        oldCounts.set(key, count - 1)
-        return { text: tag, kind: "same" }
-      }
-      return { text: tag, kind: "added" }
-    })
-    .concat(
-      [...oldCounts.entries()].flatMap(([key, count]) =>
-        Array.from({ length: count }, () => ({
-          text: `- ${oldTags.find((tag) => tag.toLowerCase() === key) ?? key}`,
-          kind: "removed",
-        })),
-      ),
-    )
-}
-
-function DiffText({ value, previous }: { value: string; previous?: string }) {
-  return (
-    <span className="diff-text">
-      {diffTags(value, previous).map((tag, index) => (
-        <span className={`diff-${tag.kind}`} key={`${tag.text}-${index}`}>
-          {tag.text}
-          {index < diffTags(value, previous).length - 1 ? ", " : ""}
-        </span>
-      ))}
-    </span>
-  )
-}
-
-function Login({ onLogin }: { onLogin: () => void }) {
-  const [password, setPassword] = useState("")
-  const [error, setError] = useState("")
-  async function submit(event: React.FormEvent) {
-    event.preventDefault()
-    try {
-      await api("/auth/login", { method: "POST", body: JSON.stringify({ password }) })
-      onLogin()
-    } catch (reason) {
-      setError(reason instanceof Error ? reason.message : "Login failed")
-    }
-  }
-  return (
-    <main className="login-shell">
-      <div className="login-mark">
-        PD<span>·</span>XL
-      </div>
-      <h1>Private image studio</h1>
-      <p>Connect to your Pony Diffusion workspace.</p>
-      <form onSubmit={submit}>
-        <label htmlFor="password">Password</label>
-        <input
-          id="password"
-          type="password"
-          autoFocus
-          value={password}
-          onChange={(event) => setPassword(event.target.value)}
-        />
-        <button className="primary" type="submit">
-          Enter studio
-        </button>
-        {error && <div className="error-banner">{error}</div>}
-      </form>
-    </main>
-  )
-}
 
 export function App() {
   const [authenticated, setAuthenticated] = useState<boolean | null>(null)
@@ -135,8 +33,10 @@ export function App() {
     ])
     setInstances(nextInstances)
     setJobs(nextJobs)
-    if (instanceId === "" && nextInstances.some((instance) => instance.ready))
-      setInstanceId(nextInstances.find((instance) => instance.ready)!.id)
+    if (instanceId === "") {
+      const ready = nextInstances.find((instance) => instance.ready)
+      if (ready) setInstanceId(ready.id)
+    }
   }
   useEffect(() => {
     api<{ authenticated: boolean }>("/auth/session")
@@ -164,8 +64,6 @@ export function App() {
     const timer = window.setInterval(() => setNow(Date.now()), 1000)
     return () => window.clearInterval(timer)
   }, [hasLiveAge])
-  const activeInstances = instances.filter((instance) => instance.ready)
-  const jobsById = useMemo(() => new Map(jobs.map((job) => [job.id, job])), [jobs])
 
   async function submit(config: Config, blockId?: string) {
     setBusy(true)
@@ -173,9 +71,11 @@ export function App() {
     try {
       const job = await api<Job>("/jobs", { method: "POST", body: JSON.stringify(config) })
       setJobs((current) => [job, ...current])
-      if (blockId)
-        setBlocks((current) => ({ ...current, [blockId]: [...(current[blockId] ?? []), job.id] }))
-      else setBlocks((current) => ({ ...current, [job.id]: [job.id] }))
+      setBlocks((current) =>
+        blockId
+          ? { ...current, [blockId]: [...(current[blockId] ?? []), job.id] }
+          : { ...current, [job.id]: [job.id] },
+      )
       setPrevious(config)
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : "Could not queue generation")
@@ -183,14 +83,19 @@ export function App() {
       setBusy(false)
     }
   }
-  function generate(event: React.FormEvent) {
+  function generate(event: FormEvent) {
     event.preventDefault()
-    if (instanceId === "") return setError("Choose a ready instance first.")
+    if (instanceId === "") {
+      setError("Choose a ready instance first.")
+      return
+    }
     void submit({ prompt, negative_prompt: negative, width, height, seed, instanceId })
   }
   function resend(job: Job) {
-    const next = { ...job.config, seed: randomSeed() }
-    void submit(next, Object.entries(blocks).find(([, ids]) => ids.includes(job.id))?.[0] ?? job.id)
+    void submit(
+      { ...job.config, seed: randomSeed() },
+      Object.entries(blocks).find(([, ids]) => ids.includes(job.id))?.[0] ?? job.id,
+    )
   }
   async function instanceAction(path: string, init?: RequestInit) {
     setError("")
@@ -201,7 +106,20 @@ export function App() {
       setError(reason instanceof Error ? reason.message : "Instance action failed")
     }
   }
-  if (authenticated === null) return <div className="loading-screen">Loading studio...</div>
+
+  const jobsById = useMemo(() => new Map(jobs.map((job) => [job.id, job])), [jobs])
+  const galleryBlocks = Object.entries(blocks)
+    .map(([id, ids]) => ({
+      id,
+      jobs: ids.map((jobId) => jobsById.get(jobId)).filter((job): job is Job => Boolean(job)),
+    }))
+    .filter((block) => block.jobs.length)
+  if (authenticated === null)
+    return (
+      <div className="grid min-h-screen place-content-center bg-[#151714] font-['DM_Mono'] text-xs text-[#cfdc6a]">
+        Loading studio...
+      </div>
+    )
   if (!authenticated)
     return (
       <Login
@@ -212,25 +130,21 @@ export function App() {
       />
     )
 
-  const orderedBlocks = Object.entries(blocks)
-    .map(([id, ids]) => ({
-      id,
-      jobs: ids.map((jobId) => jobsById.get(jobId)).filter((job): job is Job => Boolean(job)),
-    }))
-    .filter((block) => block.jobs.length)
-  const ungrouped = jobs.filter((job) => !Object.values(blocks).some((ids) => ids.includes(job.id)))
+  const readyCount = instances.filter((instance) => instance.ready).length
   return (
-    <div className="app-shell">
-      <header className="topbar">
-        <div className="brand">
-          <span className="brand-mark">PD</span>
+    <div className="min-h-screen bg-[radial-gradient(circle_at_78%_0%,#263127_0,transparent_31rem),#151714] font-['DM_Sans'] text-[#e9e5dc]">
+      <header className="sticky top-0 z-10 flex h-[68px] items-center justify-between border-b border-[#30332e] bg-[#191c18cc] px-5 backdrop-blur md:px-10">
+        <div className="flex items-center gap-3 text-sm tracking-wide">
+          <span className="grid size-[30px] place-items-center bg-[#d4df6f] text-[11px] font-bold tracking-tighter text-[#1a1e16]">
+            PD
+          </span>
           <span>pony studio</span>
         </div>
-        <div className="top-actions">
-          <span className="status-dot" />
-          {activeInstances.length} ready{" "}
+        <div className="flex items-center gap-3 text-sm">
+          <span className="inline-block size-[7px] rounded-full bg-[#b8c457] shadow-[0_0_0_4px_#b8c4571c]" />
+          {readyCount} ready{" "}
           <button
-            className="text-button"
+            className="ml-3 text-xs text-[#aeb1a5]"
             onClick={() =>
               api("/auth/logout", { method: "POST" }).then(() => setAuthenticated(false))
             }
@@ -239,268 +153,45 @@ export function App() {
           </button>
         </div>
       </header>
-      <div className="workspace">
-        <aside className="control-panel">
-          <div className="eyebrow">Generation desk</div>
-          <h1>
-            Make something
-            <br />
-            <em>strange.</em>
-          </h1>
-          <form onSubmit={generate} className="generation-form">
-            <label>
-              Prompt
-              <textarea
-                value={prompt}
-                onChange={(event) => setPrompt(event.target.value)}
-                placeholder="a luminous creature in a glasshouse..."
-                rows={5}
-                required
-              />
-            </label>
-            <label>
-              Negative prompt
-              <textarea
-                value={negative}
-                onChange={(event) => setNegative(event.target.value)}
-                rows={3}
-              />
-            </label>
-            <div className="field-grid">
-              <label>
-                Width
-                <input
-                  type="number"
-                  min={64}
-                  max={2048}
-                  step={64}
-                  value={width}
-                  onChange={(event) => setWidth(Number(event.target.value))}
-                />
-              </label>
-              <label>
-                Height
-                <input
-                  type="number"
-                  min={64}
-                  max={2048}
-                  step={64}
-                  value={height}
-                  onChange={(event) => setHeight(Number(event.target.value))}
-                />
-              </label>
-            </div>
-            <label>
-              Seed
-              <div className="seed-field">
-                <input
-                  type="number"
-                  value={seed}
-                  onChange={(event) => setSeed(Number(event.target.value))}
-                />
-                <button type="button" title="Randomize seed" onClick={() => setSeed(randomSeed())}>
-                  ↻
-                </button>
-              </div>
-            </label>
-            <label>
-              Ready instance
-              <select
-                value={instanceId}
-                onChange={(event) =>
-                  setInstanceId(event.target.value ? Number(event.target.value) : "")
-                }
-                required
-              >
-                <option value="">Select instance</option>
-                {activeInstances.map((instance) => (
-                  <option value={instance.id} key={instance.id}>
-                    #{instance.id} · {instance.gpu_name} · ${instance.dph_total.toFixed(2)}/h
-                  </option>
-                ))}
-              </select>
-            </label>
-            <button
-              className="primary generate-button"
-              disabled={busy || instanceId === ""}
-              type="submit"
-            >
-              {busy ? "Queueing..." : "Generate image"}
-              <span>↗</span>
-            </button>
-            {error && <div className="error-banner">{error}</div>}
-          </form>
-          <div className="fixed-settings">
-            <span>FIXED PIPELINE</span>
-            <b>25 steps · CFG 7 · Euler A · Karras</b>
-            <small>Pony Diffusion V6 XL</small>
+      <div className="grid min-h-[calc(100vh-68px)] md:grid-cols-[minmax(310px,350px)_1fr]">
+        <GenerationPanel
+          prompt={prompt}
+          negative={negative}
+          width={width}
+          height={height}
+          seed={seed}
+          instanceId={instanceId}
+          instances={instances}
+          busy={busy}
+          error={error}
+          onPrompt={setPrompt}
+          onNegative={setNegative}
+          onWidth={setWidth}
+          onHeight={setHeight}
+          onSeed={setSeed}
+          onInstance={setInstanceId}
+          onSubmit={generate}
+        />
+        <div className="min-w-0">
+          <div className="px-3 md:px-10">
+            <Fleet
+              instances={instances}
+              now={now}
+              onAction={(path, init) => void instanceAction(path, init)}
+            />
           </div>
-        </aside>
-        <main className="gallery">
-          <div className="gallery-toolbar">
-            <div>
-              <div className="eyebrow">Output archive</div>
-              <h2>
-                Generations <span>{jobs.length}</span>
-              </h2>
-            </div>
-            <div className="toolbar-tools">
-              <label className="zoom-control">
-                Tile size{" "}
-                <input
-                  type="range"
-                  min="30"
-                  max="900"
-                  value={zoom}
-                  onChange={(event) => setZoom(Number(event.target.value))}
-                />
-                <output>{zoom}px</output>
-              </label>
-              <button
-                className="icon-button"
-                title="Refresh instances and jobs"
-                onClick={() => void refresh()}
-              >
-                ⟳
-              </button>
-            </div>
-          </div>
-          <div className="instance-strip">
-            <div className="strip-label">VAST.AI FLEET</div>
-            {instances.map((instance) => (
-              <div className="instance-chip" key={instance.id}>
-                <span className={`status-dot ${instance.ready ? "ready" : "muted"}`} />#
-                {shortInstanceId(instance.id)} {instance.provisioning}
-                {!instance.ready && (
-                  <span className="instance-age">{elapsedSeconds(instance.start_date, now)}</span>
-                )}
-                <button
-                  title="Stop instance"
-                  onClick={() => {
-                    if (window.confirm(`Stop instance #${instance.id}?`))
-                      void instanceAction(`/instances/${instance.id}/stop`, { method: "POST" })
-                  }}
-                >
-                  ×
-                </button>
-              </div>
-            ))}
-            <button
-              className="outline-button"
-              onClick={() => void instanceAction("/instances/provision", { method: "POST" })}
-            >
-              + Provision
-            </button>
-            <button
-              className="danger-button"
-              onClick={() => {
-                if (window.confirm("Stop all instances?"))
-                  void instanceAction("/instances/stop-all", { method: "POST" })
-              }}
-            >
-              Stop all
-            </button>
-          </div>
-          <div
-            className="gallery-grid"
-            style={{ "--tile-size": `${zoom}px` } as React.CSSProperties}
-          >
-            {orderedBlocks.map((block, blockIndex) => (
-              <section
-                className="image-block"
-                key={block.id}
-                style={{ "--block-hue": `${(blockIndex * 71 + 24) % 360}` } as React.CSSProperties}
-              >
-                <div className="block-meta">
-                  <span>SET {String(blockIndex + 1).padStart(2, "0")}</span>
-                  <span>
-                    {block.jobs.length} image{block.jobs.length === 1 ? "" : "s"}
-                  </span>
-                </div>
-                <div className="block-images">
-                  {block.jobs.map((job) => (
-                    <JobTile
-                      job={job}
-                      previous={previous}
-                      onResend={() => resend(job)}
-                      now={now}
-                      key={job.id}
-                    />
-                  ))}
-                </div>
-              </section>
-            ))}
-            {ungrouped.map((job) => (
-              <section className="image-block" key={job.id}>
-                <div className="block-meta">
-                  <span>SET</span>
-                </div>
-                <div className="block-images">
-                  <JobTile job={job} previous={previous} onResend={() => resend(job)} now={now} />
-                </div>
-              </section>
-            ))}
-            {!jobs.length && (
-              <div className="empty-state">
-                <div className="empty-orbit">✦</div>
-                <h3>Your archive is quiet</h3>
-                <p>Write a prompt and send your first image into the queue.</p>
-              </div>
-            )}
-          </div>
-        </main>
+          <Gallery
+            jobs={jobs}
+            blocks={galleryBlocks}
+            previous={previous}
+            now={now}
+            zoom={zoom}
+            onZoom={setZoom}
+            onRefresh={() => void refresh()}
+            onResend={resend}
+          />
+        </div>
       </div>
     </div>
-  )
-}
-
-function JobTile({
-  job,
-  previous,
-  onResend,
-  now,
-}: {
-  job: Job
-  previous?: Config
-  onResend: () => void
-  now: number
-}) {
-  return (
-    <article className={`image-tile ${job.status}`}>
-      <div className="tile-image">
-        {job.status === "completed" && job.thumbnailUrl ? (
-          <img src={job.thumbnailUrl} alt={job.config.prompt} />
-        ) : (
-          <div className="tile-state">
-            <span>
-              {job.status === "queued"
-                ? `#${(job.position ?? 0) + 1}`
-                : job.status === "running"
-                  ? "Rendering"
-                  : "Failed"}
-            </span>
-            {job.error && <small>{job.error}</small>}
-          </div>
-        )}
-        <div className="tile-overlay">
-          <button onClick={onResend}>↻ Re-send</button>
-        </div>
-      </div>
-      <div className="tile-caption">
-        <div className="tile-prompt">
-          <DiffText value={job.config.prompt} previous={previous?.prompt} />
-        </div>
-        <div className="tile-details">
-          <span>
-            {job.config.width}×{job.config.height}
-          </span>
-          <span className={previous && previous.seed !== job.config.seed ? "changed" : ""}>
-            seed {job.config.seed}
-          </span>
-          <span className="job-age">{elapsedSeconds(job.createdAt, job.finishedAt ?? now)}</span>
-          <span className="tile-status">{job.status}</span>
-        </div>
-      </div>
-    </article>
   )
 }

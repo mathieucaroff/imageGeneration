@@ -10,7 +10,7 @@ import { CHECKPOINT_FILE, COMFYUI_PORT, withScoreTags } from "../lib/pony"
 import { findExposedPort, listInstances } from "../lib/vastai"
 
 const USAGE =
-  'Usage: bun run script/generate.ts "<prompt>" [--negative "..."] [--steps N] [--cfg N] ' +
+  'Usage: just generate "<prompt>" [--negative "..."] [--steps N] [--cfg N] ' +
   "[--width N] [--height N] [--seed N] [--sampler NAME] [--scheduler NAME] " +
   '[--score-tags "..." (pass "" to disable)] [--instance ID] [--host HOST] [--port N] [--out DIR]'
 
@@ -86,7 +86,7 @@ async function resolveEndpoint(args: Args): Promise<{
   if (!instance) {
     throw new Error(
       running.length === 0
-        ? "No running Vast.ai instance found. Provision one first with `bun run vastai:provision`."
+        ? "No running Vast.ai instance found. Provision one first with `just provision`."
         : `No running instance with id ${args.instanceId}.`,
     )
   }

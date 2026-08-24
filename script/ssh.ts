@@ -13,7 +13,7 @@ function parseArgs(argv: string[]): { instanceId: number | undefined; sshArgs: s
     if (arg === "--instance") {
       const value = argv[++index]
       if (!value || !Number.isInteger(Number(value))) {
-        throw new Error("Usage: bun run vastai:ssh [--instance ID] [ssh arguments]")
+        throw new Error("Usage: just ssh [--instance ID] [ssh arguments]")
       }
       instanceId = Number(value)
     } else if (arg) {
@@ -35,7 +35,7 @@ async function main() {
     throw new Error(
       instanceId
         ? `No running instance with id ${instanceId}.`
-        : "No running Vast.ai instance found. Provision one first with `bun run vastai:provision`.",
+        : "No running Vast.ai instance found. Provision one first with `just provision`.",
     )
   }
   if (!instance.ssh_host || !instance.ssh_port) {

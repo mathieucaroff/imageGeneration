@@ -20,7 +20,7 @@ function instanceAge(instance: Instance): string {
 }
 
 function sshCommand(instance: Instance): string {
-  return `bun run vastai:ssh -- --instance ${instance.id}`
+  return `just ssh --instance ${instance.id}`
 }
 
 function getPortString(instance: Instance): string {

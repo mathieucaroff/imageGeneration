@@ -3,10 +3,6 @@
   "private": true,
   "version": "0.1.0",
   "type": "module",
-  "scripts": {
-    "dev": "bun run --env-file=../.env --watch src/server.ts",
-    "start": "bun run --env-file=../.env src/server.ts"
-  },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1113.0",
     "hono": "^4.6.14",

@@ -104,7 +104,6 @@ export function Gallery({
   previous,
   now,
   zoom,
-  onZoom,
   onRefresh,
   onResend,
 }: {
@@ -113,13 +112,23 @@ export function Gallery({
   previous?: Config
   now: number
   zoom: number
-  onZoom: (value: number) => void
-  onRefresh: () => void
+  onRefresh: () => Promise<void>
   onResend: (job: Job) => void
 }) {
   const [selectedJob, setSelectedJob] = useState<Job>()
+  const [isRefreshing, setIsRefreshing] = useState(false)
   const groupedIds = new Set(blocks.flatMap((block) => block.jobs.map((job) => job.id)))
   const ungrouped = jobs.filter((job) => !groupedIds.has(job.id))
+
+  async function refreshGallery() {
+    setIsRefreshing(true)
+    try {
+      await onRefresh()
+    } finally {
+      setIsRefreshing(false)
+    }
+  }
+
   return (
     <main className="min-w-0 px-3 py-7 sm:px-6 md:px-10 md:py-11">
       <div className="mb-6 flex flex-col items-start justify-between gap-5 xl:flex-row xl:items-end">
@@ -132,34 +141,21 @@ export function Gallery({
             <span className="ml-1 font-['DM_Mono'] text-xs text-[#8d9286]">{jobs.length}</span>
           </h2>
         </div>
-        <div className="flex w-full items-center justify-between gap-4 sm:w-auto">
-          <label className="flex flex-1 items-center gap-2 text-[11px] whitespace-nowrap text-[#aeb1a5] sm:flex-none">
-            Tile size
-            <input
-              className="h-auto w-full accent-[#cfdc6a] sm:w-[400px]"
-              type="range"
-              min="30"
-              max="900"
-              value={zoom}
-              onChange={(event) => onZoom(Number(event.target.value))}
-            />
-            <output className="min-w-12 font-['DM_Mono'] text-[11px] text-[#cfdc6a]">
-              {zoom}px
-            </output>
-          </label>
+        <div className="flex w-full justify-end sm:w-auto">
           <Button
-            className="px-2 py-1 text-lg"
+            className="px-2 py-1 text-lg disabled:cursor-wait disabled:opacity-60"
+            disabled={isRefreshing}
             title="Refresh instances and jobs"
-            onClick={onRefresh}
+            onClick={() => void refreshGallery()}
           >
-            ⟳
+            <span className={isRefreshing ? "inline-block animate-spin" : "inline-block"}>⟳</span>
           </Button>
         </div>
       </div>
       <div className="grid gap-7 pt-7" style={{ "--tile-size": `${zoom}px` } as CSSProperties}>
         {blocks.map((block, index) => (
           <section
-            className="hidden min-w-0 border border-[hsl(var(--block-hue)_13%_25%)] bg-[hsl(var(--block-hue)_14%_17%)] p-3.5"
+            className="min-w-0 border border-[hsl(var(--block-hue)_13%_25%)] bg-[hsl(var(--block-hue)_14%_17%)] p-3.5"
             key={block.id}
             style={{ "--block-hue": `${(index * 71 + 24) % 360}` } as CSSProperties}
           >

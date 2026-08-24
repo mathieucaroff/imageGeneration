@@ -7,7 +7,7 @@ import { blacklistMachineId } from "../lib/history"
 
 async function main() {
   const id = Number(process.argv[2])
-  if (!id) throw new Error("Usage: bun run script/blacklist.ts <machine_id>")
+  if (!id) throw new Error("Usage: just blacklist <machine_id>")
   await blacklistMachineId(id)
   console.log(`Machine ${id} blacklisted; provision-rtx4090.ts will skip it from now on.`)
 }

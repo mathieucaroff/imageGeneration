@@ -23,6 +23,7 @@ export function Fleet({
   onAction: (path: string, init?: RequestInit) => void
 }) {
   const [pendingAction, setPendingAction] = useState<PendingAction>()
+  const [provisionCount, setProvisionCount] = useState("")
 
   function confirmAction() {
     if (!pendingAction) return
@@ -32,6 +33,14 @@ export function Fleet({
       onAction(`/instances/${pendingAction.instance.id}/stop`, { method: "POST" })
     else onAction("/instances/stop-all", { method: "POST" })
     setPendingAction(undefined)
+  }
+
+  async function provision() {
+    const count = provisionCount === "" ? 1 : Number(provisionCount)
+    for (let instance = 0; instance < count; instance += 1) {
+      onAction("/instances/provision", { method: "POST" })
+      await new Promise((resolve) => setTimeout(resolve, 500))
+    }
   }
 
   return (
@@ -46,7 +55,7 @@ export function Fleet({
             key={instance.id}
           >
             <StatusDot ready={instance.ready} />#{shortInstanceId(instance.id)}{" "}
-            {instance.provisioning}
+            {instance.provisioning} ${instance.dph_total.toFixed(2)}/h
             {!instance.ready && (
               <span className="text-[#8d9286]">{elapsedSeconds(instance.start_date, now)}</span>
             )}
@@ -64,12 +73,25 @@ export function Fleet({
             </Button>
           </div>
         ))}
-        <Button
-          className="px-3 py-2 text-[12px]"
-          onClick={() => onAction("/instances/provision", { method: "POST" })}
-        >
-          + Provision
-        </Button>
+        <div className="flex h-8 border border-[#42473d] bg-[#20231f] focus-within:border-[#cfdc6a]">
+          <input
+            aria-label="Number of instances to provision"
+            className="w-12 border-r border-[#42473d] bg-transparent px-2 font-['DM_Mono'] text-xs text-[#e9e5dc] outline-none"
+            inputMode="numeric"
+            min="1"
+            max="9"
+            placeholder="1"
+            type="number"
+            value={provisionCount}
+            onChange={(event) => {
+              if (event.target.value === "" || /^[1-9]$/.test(event.target.value))
+                setProvisionCount(event.target.value)
+            }}
+          />
+          <Button className="px-3 text-[12px]" onClick={provision}>
+            + Provision
+          </Button>
+        </div>
         <Button
           className="border-[#5b3b37] px-3 py-2 text-[12px] text-[#db9d91]"
           onClick={() => setPendingAction({ kind: "stop-all" })}

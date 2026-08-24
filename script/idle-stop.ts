@@ -20,11 +20,11 @@ function parseArgs(argv: string[]): { idleMinutes: number; once: boolean } {
     } else if (arg === "--minutes") {
       const value = Number(argv[++index])
       if (!Number.isFinite(value) || value <= 0) {
-        throw new Error("Usage: bun run vastai:idle-stop [--once] [--minutes N]")
+        throw new Error("Usage: just idle-stop [--once] [--minutes N]")
       }
       idleMinutes = value
     } else {
-      throw new Error("Usage: bun run vastai:idle-stop [--once] [--minutes N]")
+      throw new Error("Usage: just idle-stop [--once] [--minutes N]")
     }
   }
 

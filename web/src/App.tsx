@@ -134,18 +134,33 @@ export function App() {
   const readyCount = instances.filter((instance) => instance.ready).length
   return (
     <div className="min-h-screen bg-[radial-gradient(circle_at_78%_0%,#263127_0,transparent_31rem),#151714] font-['DM_Sans'] text-[#e9e5dc]">
-      <header className="sticky top-0 z-10 flex h-[68px] items-center justify-between border-b border-[#30332e] bg-[#191c18cc] px-5 backdrop-blur md:px-10">
+      <header className="sticky top-0 z-10 flex min-h-[68px] items-center justify-between gap-4 border-b border-[#30332e] bg-[#191c18cc] px-5 backdrop-blur md:px-10">
         <div className="flex items-center gap-3 text-sm tracking-wide">
           <span className="grid size-[30px] place-items-center bg-[#d4df6f] text-[11px] font-bold tracking-tighter text-[#1a1e16]">
             PD
           </span>
           <span>pony studio</span>
         </div>
-        <div className="flex items-center gap-3 text-sm">
-          <StatusDot ready />
-          {readyCount} ready{" "}
+        <div className="flex min-w-0 items-center gap-3 text-sm">
+          <label className="flex min-w-0 items-center gap-2 text-[11px] whitespace-nowrap text-[#aeb1a5]">
+            <span className="hidden lg:inline">Tile size</span>
+            <input
+              aria-label="Tile size"
+              className="w-20 accent-[#cfdc6a] sm:w-32 lg:w-[240px]"
+              type="range"
+              min="30"
+              max="900"
+              value={zoom}
+              onChange={(event) => setZoom(Number(event.target.value))}
+            />
+            <output className="font-['DM_Mono'] text-[11px] text-[#cfdc6a]">{zoom}px</output>
+          </label>
+          <span className="hidden items-center gap-3 sm:flex">
+            <StatusDot ready />
+            {readyCount} ready
+          </span>
           <Button
-            className="ml-3 text-xs"
+            className="text-xs"
             variant="quiet"
             onClick={() =>
               api("/auth/logout", { method: "POST" }).then(() => setAuthenticated(false))
@@ -188,8 +203,7 @@ export function App() {
             previous={previous}
             now={now}
             zoom={zoom}
-            onZoom={setZoom}
-            onRefresh={() => void refresh()}
+            onRefresh={refresh}
             onResend={resend}
           />
         </div>

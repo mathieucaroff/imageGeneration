@@ -31,3 +31,10 @@ type Instance = {
   public_ipaddr?: string
   start_date?: number | null
 }
+
+type GalleryPreview =
+  { kind: "image"; job: Job } | { kind: "config"; config: Config; color: string }
+
+type GalleryTile =
+  | { kind: "config"; id: string; config: Config; previous?: Config; color: string }
+  | { kind: "job"; id: string; job: Job; color: string }

@@ -4,6 +4,10 @@ default:
 dev:
     cd server && bun run --env-file=../.env --watch src/server.ts &
     cd web && bunx vite
+devserver:
+    cd server && bun run --env-file=../.env --watch src/server.ts
+devweb:
+    cd web && bunx vite
 build:
     cd web && bunx tsc -b && bunx vite build
 start:

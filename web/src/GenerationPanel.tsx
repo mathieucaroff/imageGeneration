@@ -2,14 +2,16 @@ import type { FormEvent } from "react"
 import { Button } from "./components/Button"
 import { ErrorNotice } from "./components/ErrorNotice"
 import { FormField } from "./components/FormField"
-import { randomSeed } from "./utils"
+import { Switch } from "./components/Switch"
 
 type Props = {
   prompt: string
   negative: string
   width: number
   height: number
-  seed: number
+  seed: number | ""
+  randomizedSeed: boolean
+  lastPreview?: GalleryPreview
   instanceId: number | ""
   instances: Instance[]
   busy: boolean
@@ -18,7 +20,8 @@ type Props = {
   onNegative: (value: string) => void
   onWidth: (value: number) => void
   onHeight: (value: number) => void
-  onSeed: (value: number) => void
+  onSeed: (value: number | "") => void
+  onRandomizedSeed: (value: boolean) => void
   onInstance: (value: number | "") => void
   onSubmit: (event: FormEvent) => void
 }
@@ -80,25 +83,23 @@ export function GenerationPanel(props: Props) {
             />
           </FormField>
         </div>
-        <FormField label="Seed">
-          <div className="flex gap-1">
-            <input
-              className={field}
-              type="number"
-              value={props.seed}
-              onChange={(event) => props.onSeed(Number(event.target.value))}
+        <div className="grid gap-2 text-[11px] text-[#aeb1a5]">
+          <div className="flex items-center justify-between gap-3">
+            <span>Seed</span>
+            <Switch
+              checked={props.randomizedSeed}
+              label="Randomized"
+              onChange={props.onRandomizedSeed}
             />
-            <Button
-              className="w-10 border-[#3a3e37] bg-[#2a2d27] text-xl text-[#cfdc6a]"
-              variant="secondary"
-              type="button"
-              title="Randomize seed"
-              onClick={() => props.onSeed(randomSeed())}
-            >
-              ↻
-            </Button>
           </div>
-        </FormField>
+          <input
+            className={`${field} disabled:cursor-not-allowed disabled:opacity-45`}
+            disabled={props.randomizedSeed}
+            type="number"
+            value={props.seed}
+            onChange={(event) => props.onSeed(event.target.value ? Number(event.target.value) : "")}
+          />
+        </div>
         <FormField label="Ready instance">
           <select
             className={field}
@@ -136,6 +137,41 @@ export function GenerationPanel(props: Props) {
         </b>
         <small className="text-[11px] text-[#777c70]">Pony Diffusion V6 XL</small>
       </div>
+      <section className="mt-8 border-t border-[#30332e] pt-5">
+        <div className="font-['DM_Mono'] text-[10px] tracking-[.14em] text-[#8d9286]">
+          LAST IMAGE VIEW
+        </div>
+        {props.lastPreview?.kind === "image" &&
+        (props.lastPreview.job.thumbnailUrl || props.lastPreview.job.imageUrl) ? (
+          <img
+            className="mt-3 aspect-square w-full object-cover"
+            src={props.lastPreview.job.thumbnailUrl ?? props.lastPreview.job.imageUrl}
+            alt={props.lastPreview.job.config.prompt}
+          />
+        ) : props.lastPreview?.kind === "config" ? (
+          <div
+            className="mt-3 border-[0.375rem] border-solid bg-[#080a08] p-3 text-[#d7d8ce] sm:border-[1rem]"
+            style={{ borderColor: props.lastPreview.color }}
+          >
+            <div className="font-['DM_Mono'] text-[10px] font-bold tracking-[.14em]">CONFIG</div>
+            <div className="mt-3 text-xs leading-relaxed whitespace-pre-wrap">
+              {props.lastPreview.config.prompt}
+            </div>
+            <div className="mt-3 text-[10px] leading-relaxed whitespace-pre-wrap opacity-75">
+              {props.lastPreview.config.negative_prompt}
+            </div>
+            <div className="mt-4 font-['DM_Mono'] text-[10px]">
+              {props.lastPreview.config.width} x {props.lastPreview.config.height}
+              <br />
+              seed {props.lastPreview.config.seed}
+            </div>
+          </div>
+        ) : (
+          <div className="mt-3 grid aspect-square place-items-center border border-[#3a3e37] bg-[#20231f] px-5 text-center font-['DM_Mono'] text-[10px] text-[#777c70]">
+            No completed images yet
+          </div>
+        )}
+      </section>
     </aside>
   )
 }

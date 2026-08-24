@@ -1,30 +1,75 @@
-import { useEffect, useMemo, useState, type FormEvent } from "react"
+import { useEffect, useRef, useState, type FormEvent } from "react"
 import { api } from "./api"
 import { Button } from "./components/Button"
 import { StatusDot } from "./components/StatusDot"
 import { Fleet } from "./Fleet"
 import { Gallery } from "./Gallery"
 import { GenerationPanel } from "./GenerationPanel"
+import type { GalleryPreview } from "./gallery-model"
 import { Login } from "./Login"
 import { randomSeed } from "./utils"
 
 const defaultNegative = "score_4, score_5, score_6, worst quality, low quality, blurry"
+const generationConfigStorageKey = "pony-studio.generation-config.v1"
+
+type SavedGenerationConfig = {
+  prompt: string
+  negative: string
+  width: number
+  height: number
+  seed: number | ""
+  randomizedSeed: boolean
+  instanceId: number | ""
+}
+
+function loadGenerationConfig(): SavedGenerationConfig {
+  const defaults: SavedGenerationConfig = {
+    prompt: "",
+    negative: defaultNegative,
+    width: 1024,
+    height: 1024,
+    seed: randomSeed(),
+    randomizedSeed: false,
+    instanceId: "",
+  }
+  if (typeof window === "undefined") return defaults
+  try {
+    const value = localStorage.getItem(generationConfigStorageKey)
+    if (!value) return defaults
+    const saved = JSON.parse(value) as Partial<SavedGenerationConfig>
+    const randomizedSeed =
+      typeof saved.randomizedSeed === "boolean" ? saved.randomizedSeed : defaults.randomizedSeed
+    return {
+      prompt: typeof saved.prompt === "string" ? saved.prompt : defaults.prompt,
+      negative: typeof saved.negative === "string" ? saved.negative : defaults.negative,
+      width: Number.isFinite(saved.width) ? saved.width! : defaults.width,
+      height: Number.isFinite(saved.height) ? saved.height! : defaults.height,
+      seed: randomizedSeed ? "" : Number.isFinite(saved.seed) ? saved.seed! : defaults.seed,
+      randomizedSeed,
+      instanceId: Number.isInteger(saved.instanceId) ? saved.instanceId! : defaults.instanceId,
+    }
+  } catch {
+    return defaults
+  }
+}
 
 export function App() {
+  const [savedGenerationConfig] = useState(loadGenerationConfig)
   const [authenticated, setAuthenticated] = useState<boolean | null>(null)
   const [instances, setInstances] = useState<Instance[]>([])
   const [jobs, setJobs] = useState<Job[]>([])
-  const [prompt, setPrompt] = useState("")
-  const [negative, setNegative] = useState(defaultNegative)
-  const [width, setWidth] = useState(1024)
-  const [height, setHeight] = useState(1024)
-  const [seed, setSeed] = useState(randomSeed())
-  const [instanceId, setInstanceId] = useState<number | "">("")
+  const [jobsLoaded, setJobsLoaded] = useState(false)
+  const [prompt, setPrompt] = useState(savedGenerationConfig.prompt)
+  const [negative, setNegative] = useState(savedGenerationConfig.negative)
+  const [width, setWidth] = useState(savedGenerationConfig.width)
+  const [height, setHeight] = useState(savedGenerationConfig.height)
+  const [seed, setSeed] = useState<number | "">(savedGenerationConfig.seed)
+  const [randomizedSeed, setRandomizedSeed] = useState(savedGenerationConfig.randomizedSeed)
+  const [instanceId, setInstanceId] = useState<number | "">(savedGenerationConfig.instanceId)
   const [zoom, setZoom] = useState(260)
   const [error, setError] = useState("")
   const [busy, setBusy] = useState(false)
-  const [blocks, setBlocks] = useState<Record<string, string[]>>({})
-  const [previous, setPrevious] = useState<Config>()
+  const [lastPreview, setLastPreview] = useState<GalleryPreview>()
   const [now, setNow] = useState(Date.now())
 
   async function refresh() {
@@ -34,6 +79,7 @@ export function App() {
     ])
     setInstances(nextInstances)
     setJobs(nextJobs)
+    setJobsLoaded(true)
     if (instanceId === "") {
       const ready = nextInstances.find((instance) => instance.ready)
       if (ready) setInstanceId(ready.id)
@@ -65,19 +111,23 @@ export function App() {
     const timer = window.setInterval(() => setNow(Date.now()), 1000)
     return () => window.clearInterval(timer)
   }, [hasLiveAge])
+  useEffect(() => {
+    try {
+      localStorage.setItem(
+        generationConfigStorageKey,
+        JSON.stringify({ prompt, negative, width, height, seed, randomizedSeed, instanceId }),
+      )
+    } catch {
+      /* The form remains usable when browser storage is unavailable. */
+    }
+  }, [prompt, negative, width, height, seed, randomizedSeed, instanceId])
 
-  async function submit(config: Config, blockId?: string) {
+  async function submit(config: Config) {
     setBusy(true)
     setError("")
     try {
       const job = await api<Job>("/jobs", { method: "POST", body: JSON.stringify(config) })
       setJobs((current) => [job, ...current])
-      setBlocks((current) =>
-        blockId
-          ? { ...current, [blockId]: [...(current[blockId] ?? []), job.id] }
-          : { ...current, [job.id]: [job.id] },
-      )
-      setPrevious(config)
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : "Could not queue generation")
     } finally {
@@ -90,13 +140,22 @@ export function App() {
       setError("Choose a ready instance first.")
       return
     }
-    void submit({ prompt, negative_prompt: negative, width, height, seed, instanceId })
+    const jobSeed = randomizedSeed ? randomSeed() : seed
+    if (jobSeed === "") {
+      setError("Enter a seed or enable randomized mode.")
+      return
+    }
+    void submit({
+      prompt,
+      negative_prompt: negative,
+      width,
+      height,
+      seed: jobSeed,
+      instanceId,
+    })
   }
   function resend(job: Job) {
-    void submit(
-      { ...job.config, seed: randomSeed() },
-      Object.entries(blocks).find(([, ids]) => ids.includes(job.id))?.[0] ?? job.id,
-    )
+    void submit({ ...job.config, seed: randomSeed() })
   }
   async function instanceAction(path: string, init?: RequestInit) {
     setError("")
@@ -108,13 +167,20 @@ export function App() {
     }
   }
 
-  const jobsById = useMemo(() => new Map(jobs.map((job) => [job.id, job])), [jobs])
-  const galleryBlocks = Object.entries(blocks)
-    .map(([id, ids]) => ({
-      id,
-      jobs: ids.map((jobId) => jobsById.get(jobId)).filter((job): job is Job => Boolean(job)),
-    }))
-    .filter((block) => block.jobs.length)
+  const lastCompletedImageId = useRef<string | undefined>(undefined)
+  useEffect(() => {
+    const lastCompletedImage = jobs
+      .filter((job) => job.status === "completed" && (job.thumbnailUrl || job.imageUrl))
+      .sort(
+        (first, second) =>
+          Date.parse(second.finishedAt ?? second.createdAt) -
+          Date.parse(first.finishedAt ?? first.createdAt),
+      )[0]
+    if (lastCompletedImage && lastCompletedImage.id !== lastCompletedImageId.current) {
+      lastCompletedImageId.current = lastCompletedImage.id
+      setLastPreview({ kind: "image", job: lastCompletedImage })
+    }
+  }, [jobs])
   if (authenticated === null)
     return (
       <div className="grid min-h-screen place-content-center bg-[#151714] font-['DM_Mono'] text-xs text-[#cfdc6a]">
@@ -177,6 +243,8 @@ export function App() {
           width={width}
           height={height}
           seed={seed}
+          randomizedSeed={randomizedSeed}
+          lastPreview={lastPreview}
           instanceId={instanceId}
           instances={instances}
           busy={busy}
@@ -186,6 +254,10 @@ export function App() {
           onWidth={setWidth}
           onHeight={setHeight}
           onSeed={setSeed}
+          onRandomizedSeed={(enabled) => {
+            setRandomizedSeed(enabled)
+            setSeed(enabled ? "" : randomSeed())
+          }}
           onInstance={setInstanceId}
           onSubmit={generate}
         />
@@ -199,12 +271,12 @@ export function App() {
           </div>
           <Gallery
             jobs={jobs}
-            blocks={galleryBlocks}
-            previous={previous}
+            jobsLoaded={jobsLoaded}
             now={now}
             zoom={zoom}
             onRefresh={refresh}
             onResend={resend}
+            onHoverPreview={setLastPreview}
           />
         </div>
       </div>

@@ -114,7 +114,15 @@ export function createJobService() {
       listeners.add(listener)
       return () => listeners.delete(listener)
     },
-    async create(config: JobConfig) {
+    async create(config: JobConfig, maxQueued?: number) {
+      if (
+        maxQueued !== undefined &&
+        [...jobs.values()].filter(
+          (job) => job.status === "queued" && job.config.instanceId === config.instanceId,
+        ).length >= maxQueued
+      ) {
+        return { queued: false as const, reason: "queue-full" as const }
+      }
       const job: Job = {
         id: randomUUID(),
         config,
@@ -127,7 +135,7 @@ export function createJobService() {
       await save()
       notify(job)
       void runWorker()
-      return publicJob(job)
+      return { queued: true as const, job: publicJob(job) }
     },
   }
 }

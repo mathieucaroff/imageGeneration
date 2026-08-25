@@ -12,8 +12,8 @@ type Props = {
   seed: number | ""
   randomizedSeed: boolean
   lastPreview?: GalleryPreview
-  instanceId: number | ""
-  instances: Instance[]
+  continuous: boolean
+  continuousDisabled: boolean
   busy: boolean
   error: string
   onPrompt: (value: string) => void
@@ -22,16 +22,15 @@ type Props = {
   onHeight: (value: number) => void
   onSeed: (value: number | "") => void
   onRandomizedSeed: (value: boolean) => void
-  onInstance: (value: number | "") => void
+  onContinuous: (enabled: boolean) => void
   onSubmit: (event: FormEvent) => void
 }
 
 export function GenerationPanel(props: Props) {
-  const ready = props.instances.filter((instance) => instance.ready)
   const field =
     "h-10 w-full border border-[#3a3e37] bg-[#20231f] px-3 text-[13px] text-[#e7e5dc] outline-none focus:border-[#bfc963]"
   return (
-    <aside className="border-b border-[#30332e] px-5 py-8 md:border-r md:border-b-0 md:px-8 lg:px-10 lg:py-14">
+    <aside className="border-b border-[#30332e] px-5 py-8 md:sticky md:top-[68px] md:h-[calc(100vh-68px)] md:overflow-y-auto md:border-r md:border-b-0 md:px-8 lg:px-10 lg:py-14">
       <div className="font-['DM_Mono'] text-[10px] tracking-[.14em] text-[#8d9286]">
         GENERATION DESK
       </div>
@@ -40,6 +39,45 @@ export function GenerationPanel(props: Props) {
         <br />
         <em className="text-[#cfdc6a]">strange.</em>
       </h1>
+      <div className="mb-3 border-y border-[#30332e] py-4">
+        <div className="flex items-center justify-between">
+          <span className="font-['DM_Mono'] text-[10px] tracking-[.14em] text-[#8d9286]">
+            GENERATION MODE
+          </span>
+          <div
+            aria-disabled={props.continuousDisabled}
+            className={`flex border ${
+              props.continuousDisabled
+                ? "cursor-not-allowed border-[#30332e] opacity-35"
+                : "border-[#42473d]"
+            }`}
+          >
+            <Button
+              className="size-8 text-sm disabled:cursor-not-allowed"
+              disabled={props.continuousDisabled}
+              title="One-at-a-time generation"
+              variant={props.continuous ? "quiet" : "primary"}
+              onClick={() => props.onContinuous(false)}
+            >
+              1
+            </Button>
+            <Button
+              className="size-8 text-lg disabled:cursor-not-allowed"
+              disabled={props.continuousDisabled}
+              title="Continuous generation"
+              variant={props.continuous ? "primary" : "quiet"}
+              onClick={() => props.onContinuous(true)}
+            >
+              ∞
+            </Button>
+          </div>
+        </div>
+        {props.continuousDisabled && (
+          <p className="mt-2 text-[10px] text-[#777c70]">
+            Select a ready instance to enable modes.
+          </p>
+        )}
+      </div>
       <form className="grid max-w-[620px] gap-5" onSubmit={props.onSubmit}>
         <FormField label="Prompt">
           <textarea
@@ -100,27 +138,10 @@ export function GenerationPanel(props: Props) {
             onChange={(event) => props.onSeed(event.target.value ? Number(event.target.value) : "")}
           />
         </div>
-        <FormField label="Ready instance">
-          <select
-            className={field}
-            value={props.instanceId}
-            required
-            onChange={(event) =>
-              props.onInstance(event.target.value ? Number(event.target.value) : "")
-            }
-          >
-            <option value="">Select instance</option>
-            {ready.map((instance) => (
-              <option value={instance.id} key={instance.id}>
-                #{instance.id} · {instance.gpu_name} · ${instance.dph_total.toFixed(2)}/h
-              </option>
-            ))}
-          </select>
-        </FormField>
         <Button
           className="flex justify-between px-4 py-3 text-[12px] font-bold disabled:cursor-not-allowed disabled:opacity-45"
           variant="primary"
-          disabled={props.busy || props.instanceId === ""}
+          disabled={props.busy || props.continuousDisabled}
           type="submit"
         >
           {props.busy ? "Queueing..." : "Generate image"}

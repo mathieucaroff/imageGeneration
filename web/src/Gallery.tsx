@@ -26,43 +26,54 @@ function ConfigTile({
   tile,
   onHover,
   onOpen,
+  onSend,
 }: {
   tile: Extract<GalleryTile, { kind: "config" }>
   onHover: () => void
   onOpen: () => void
+  onSend: () => void
 }) {
   return (
-    <button
-      className="aspect-square w-[min(var(--tile-size),calc(100vw-2rem))] overflow-hidden rounded-3xl border-[0.375rem] bg-[#080a08] p-4 text-left text-[#d7d8ce] outline-offset-4 outline-[#d4df6f] sm:w-[min(var(--tile-size),calc(100vw-5rem))] sm:border-[1rem]"
+    <article
+      className="group relative aspect-square w-[min(var(--tile-size),calc(100vw-2rem))] overflow-hidden border-[0.375rem] bg-[#080a08] sm:w-[min(var(--tile-size),calc(100vw-5rem))] sm:border-[1rem]"
       style={{ borderColor: tile.color }}
-      title="View full configuration"
-      type="button"
-      onClick={onOpen}
-      onMouseEnter={onHover}
-      onFocus={onHover}
     >
-      <div className="font-['DM_Mono'] text-[10px] font-bold tracking-[.14em]">CONFIG</div>
-      <div className="mt-4 line-clamp-6 text-xs leading-relaxed">
-        <DiffText value={tile.config.prompt} previous={tile.previous?.prompt} />
-      </div>
-      <div className="mt-3 line-clamp-3 text-[10px] leading-relaxed opacity-75">
-        <DiffText value={tile.config.negative_prompt} previous={tile.previous?.negative_prompt} />
-      </div>
-      <div className="mt-4 font-['DM_Mono'] text-[10px]">
-        <div
-          className={
-            tile.previous &&
-            (tile.config.width !== tile.previous.width ||
-              tile.config.height !== tile.previous.height)
-              ? "font-bold"
-              : ""
-          }
-        >
-          {tile.config.width} x {tile.config.height}
+      <button
+        className="size-full p-4 text-left text-[#d7d8ce] outline-offset-4 outline-[#d4df6f]"
+        title="View full configuration"
+        type="button"
+        onClick={onOpen}
+        onMouseEnter={onHover}
+        onFocus={onHover}
+      >
+        <div className="font-['DM_Mono'] text-[10px] font-bold tracking-[.14em]">CONFIG</div>
+        <div className="mt-4 line-clamp-6 text-xs leading-relaxed">
+          <DiffText value={tile.config.prompt} previous={tile.previous?.prompt} />
         </div>
-        <div className="mt-1">seed {tile.config.seed}</div>
+        <div className="mt-3 line-clamp-3 text-[10px] leading-relaxed opacity-75">
+          <DiffText value={tile.config.negative_prompt} previous={tile.previous?.negative_prompt} />
+        </div>
+        <div className="mt-4 font-['DM_Mono'] text-[10px]">
+          <div
+            className={
+              tile.previous &&
+              (tile.config.width !== tile.previous.width ||
+                tile.config.height !== tile.previous.height)
+                ? "font-bold"
+                : ""
+            }
+          >
+            {tile.config.width} x {tile.config.height}
+          </div>
+          <div className="mt-1">seed {tile.config.seed}</div>
+        </div>
+      </button>
+      <div className="absolute right-2 bottom-2 opacity-0 transition-opacity group-focus-within:opacity-100 group-hover:opacity-100">
+        <Button className="px-2 py-1.5 text-[11px] font-bold" variant="primary" onClick={onSend}>
+          Send
+        </Button>
       </div>
-    </button>
+    </article>
   )
 }
 
@@ -85,7 +96,7 @@ function JobTile({
   const imageUrl = zoom > 350 && job.imageUrl ? job.imageUrl : job.thumbnailUrl
   return (
     <article
-      className="group relative aspect-square w-[min(var(--tile-size),calc(100vw-2rem))] overflow-hidden rounded-3xl border-[0.375rem] bg-[#080a08] sm:w-[min(var(--tile-size),calc(100vw-5rem))] sm:border-[1rem]"
+      className="group relative aspect-square w-[min(var(--tile-size),calc(100vw-2rem))] overflow-hidden border-[0.375rem] bg-[#080a08] sm:w-[min(var(--tile-size),calc(100vw-5rem))] sm:border-[1rem]"
       style={{ borderColor: tile.color }}
     >
       {job.status === "completed" && imageUrl ? (
@@ -101,16 +112,28 @@ function JobTile({
         </button>
       ) : (
         <div className="grid size-full place-content-center justify-items-center gap-2 p-5 text-center font-['DM_Mono'] text-xs text-[#d7d8ce]">
-          <span>
-            {job.status === "queued" ? `Queued #${(job.position ?? 0) + 1}` : "Rendering"}
-          </span>
-          <span className="text-[10px]">
-            {elapsedSeconds(job.createdAt, job.finishedAt ?? now)}
-          </span>
+          {job.status === "queued" ? (
+            <>
+              <span>Queued #{(job.position ?? 0) + 1}</span>
+              <span className="text-[10px]">{elapsedSeconds(job.createdAt, now)}</span>
+            </>
+          ) : (
+            <>
+              <span>Rendering</span>
+              <span className="text-[10px]">
+                Queue: {elapsedSeconds(job.createdAt, job.startedAt!)}
+              </span>
+              <span className="text-[10px]">
+                Rendering: {elapsedSeconds(job.startedAt, job.finishedAt ?? now)}
+              </span>
+            </>
+          )}
         </div>
       )}
       <div className="pointer-events-none absolute inset-x-0 bottom-0 flex justify-between bg-linear-to-t from-[#080a08dd] to-transparent p-2.5 opacity-0 transition-opacity group-focus-within:opacity-100 group-hover:opacity-100">
-        <span className="font-['DM_Mono'] text-[10px] text-[#d7d8ce]">{job.status}</span>
+        <span className="font-['DM_Mono'] text-[10px] text-[#d7d8ce]">
+          {job.status} · seed {job.config.seed}
+        </span>
         <Button
           className="pointer-events-auto px-2 py-1.5 text-[11px] font-bold"
           variant="primary"
@@ -160,6 +183,7 @@ export function Gallery({
   zoom,
   onRefresh,
   onResend,
+  onSendConfig,
   onHoverPreview,
 }: {
   jobs: Job[]
@@ -168,6 +192,7 @@ export function Gallery({
   zoom: number
   onRefresh: () => Promise<void>
   onResend: (job: Job) => void
+  onSendConfig: (config: Config) => void
   onHoverPreview: (preview: GalleryPreview) => void
 }) {
   const [selectedTile, setSelectedTile] = useState<GalleryTile>()
@@ -216,28 +241,29 @@ export function Gallery({
           className="flex flex-wrap pt-7"
           style={{ "--tile-size": `${zoom}px` } as CSSProperties}
         >
-          {tiles.map((tile) =>
-            tile.kind === "config" ? (
-              <ConfigTile
-                key={tile.id}
-                tile={tile}
-                onHover={() =>
-                  onHoverPreview({ kind: "config", config: tile.config, color: tile.color })
-                }
-                onOpen={() => setSelectedTile(tile)}
-              />
-            ) : (
-              <JobTile
-                key={tile.id}
-                tile={tile}
-                now={now}
-                zoom={zoom}
-                onHover={() => onHoverPreview({ kind: "image", job: tile.job })}
-                onOpen={() => setSelectedTile(tile)}
-                onResend={() => onResend(tile.job)}
-              />
-            ),
-          )}
+          {tiles.map((tile) => (
+            <div key={tile.id} className="border-1 border-black">
+              {tile.kind === "config" ? (
+                <ConfigTile
+                  tile={tile}
+                  onHover={() =>
+                    onHoverPreview({ kind: "config", config: tile.config, color: tile.color })
+                  }
+                  onOpen={() => setSelectedTile(tile)}
+                  onSend={() => onSendConfig(tile.config)}
+                />
+              ) : (
+                <JobTile
+                  tile={tile}
+                  now={now}
+                  zoom={zoom}
+                  onHover={() => onHoverPreview({ kind: "image", job: tile.job })}
+                  onOpen={() => setSelectedTile(tile)}
+                  onResend={() => onResend(tile.job)}
+                />
+              )}
+            </div>
+          ))}
         </div>
       )}
       {!jobs.length && !jobsLoaded && (

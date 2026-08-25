@@ -1,6 +1,8 @@
 /*/
 .*
 
+*.tsbuildinfo
+
 !/lib/
 !/script/
 !/server/

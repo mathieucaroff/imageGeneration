@@ -16,10 +16,14 @@ type PendingAction =
 export function Fleet({
   instances,
   now,
+  instanceId,
+  onInstance,
   onAction,
 }: {
   instances: Instance[]
   now: number
+  instanceId: number | ""
+  onInstance: (id: number | "") => void
   onAction: (path: string, init?: RequestInit) => void
 }) {
   const [pendingAction, setPendingAction] = useState<PendingAction>()
@@ -49,6 +53,21 @@ export function Fleet({
         <div className="mr-1 w-full font-['DM_Mono'] text-[10px] tracking-[.14em] text-[#8d9286] sm:w-auto">
           VAST.AI FLEET
         </div>
+        <select
+          aria-label="Ready instance"
+          className="h-8 max-w-48 border border-[#42473d] bg-[#20231f] px-2 font-['DM_Mono'] text-[11px] text-[#d7d8ce] outline-none focus:border-[#cfdc6a]"
+          value={instanceId}
+          onChange={(event) => onInstance(event.target.value ? Number(event.target.value) : "")}
+        >
+          <option value="">Select instance</option>
+          {instances
+            .filter((instance) => instance.ready)
+            .map((instance) => (
+              <option value={instance.id} key={instance.id}>
+                #{shortInstanceId(instance.id)} {instance.gpu_name}
+              </option>
+            ))}
+        </select>
         {instances.map((instance) => (
           <div
             className="flex items-center gap-2 bg-[#20231f] px-2 py-1.5 font-['DM_Mono'] text-[11px] text-[#bfc2b5]"

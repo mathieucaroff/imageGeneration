@@ -12,16 +12,6 @@ import { randomSeed } from "./utils"
 const defaultNegative = "score_4, score_5, score_6, worst quality, low quality, blurry"
 const generationConfigStorageKey = "pony-studio.generation-config.v1"
 
-type SavedGenerationConfig = {
-  prompt: string
-  negative: string
-  width: number
-  height: number
-  seed: number | ""
-  randomizedSeed: boolean
-  instanceId: number | ""
-}
-
 function loadGenerationConfig(): SavedGenerationConfig {
   const defaults: SavedGenerationConfig = {
     prompt: "",
@@ -69,6 +59,8 @@ export function App() {
   const [zoom, setZoom] = useState(260)
   const [error, setError] = useState("")
   const [busy, setBusy] = useState(false)
+  const [continuous, setContinuous] = useState(false)
+  const [continuousRetry, setContinuousRetry] = useState(0)
   const [lastPreview, setLastPreview] = useState<GalleryPreview>()
   const [now, setNow] = useState(Date.now())
 
@@ -122,12 +114,19 @@ export function App() {
     }
   }, [prompt, negative, width, height, seed, randomizedSeed, instanceId])
 
+  async function createJob(config: Config, maxQueued?: number) {
+    const result = await api<CreateJobResult>("/jobs", {
+      method: "POST",
+      body: JSON.stringify({ ...config, maxQueued }),
+    })
+    if (result.queued) setJobs((current) => [result.job, ...current])
+    return result
+  }
   async function submit(config: Config) {
     setBusy(true)
     setError("")
     try {
-      const job = await api<Job>("/jobs", { method: "POST", body: JSON.stringify(config) })
-      setJobs((current) => [job, ...current])
+      await createJob(config)
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : "Could not queue generation")
     } finally {
@@ -181,6 +180,54 @@ export function App() {
       setLastPreview({ kind: "image", job: lastCompletedImage })
     }
   }, [jobs])
+  const continuousAttempting = useRef(false)
+  const continuousRetryDelay = useRef(1000)
+  const continuousRetryTimer = useRef<number>()
+  useEffect(() => {
+    return () => {
+      if (continuousRetryTimer.current !== undefined) {
+        window.clearTimeout(continuousRetryTimer.current)
+        continuousRetryTimer.current = undefined
+      }
+    }
+  }, [continuous, instanceId])
+  useEffect(() => {
+    if (!continuous) return
+    const selectedInstance = instances.find((instance) => instance.id === instanceId)
+    if (!selectedInstance?.ready) {
+      setContinuous(false)
+      return
+    }
+    const instanceJobs = jobs.filter((job) => job.config.instanceId === instanceId)
+    if (instanceJobs.some((job) => job.status === "queued") || continuousAttempting.current) return
+    const newestFirst = (first: Job, second: Job) =>
+      Date.parse(second.startedAt ?? second.createdAt) -
+      Date.parse(first.startedAt ?? first.createdAt)
+    const source =
+      instanceJobs.filter((job) => job.status === "running").toSorted(newestFirst)[0] ??
+      instanceJobs.filter((job) => job.status !== "failed").toSorted(newestFirst)[0]
+    if (!source) return
+    continuousAttempting.current = true
+    void createJob({ ...source.config, seed: randomSeed(), instanceId }, 1)
+      .then(() => {
+        continuousRetryDelay.current = 1000
+        continuousAttempting.current = false
+      })
+      .catch(() => {
+        const delay = continuousRetryDelay.current
+        if (delay >= 128000) {
+          setContinuous(false)
+          setError("Continuous generation stopped after repeated queueing failures.")
+          return
+        }
+        continuousRetryDelay.current = Math.min(delay * 2, 128000)
+        continuousRetryTimer.current = window.setTimeout(() => {
+          continuousRetryTimer.current = undefined
+          continuousAttempting.current = false
+          setContinuousRetry((current) => current + 1)
+        }, delay)
+      })
+  }, [continuous, continuousRetry, instanceId, instances, jobs])
   if (authenticated === null)
     return (
       <div className="grid min-h-screen place-content-center bg-[#151714] font-['DM_Mono'] text-xs text-[#cfdc6a]">
@@ -228,9 +275,10 @@ export function App() {
           <Button
             className="text-xs"
             variant="quiet"
-            onClick={() =>
-              api("/auth/logout", { method: "POST" }).then(() => setAuthenticated(false))
-            }
+            onClick={() => {
+              setContinuous(false)
+              void api("/auth/logout", { method: "POST" }).then(() => setAuthenticated(false))
+            }}
           >
             Sign out
           </Button>
@@ -245,8 +293,10 @@ export function App() {
           seed={seed}
           randomizedSeed={randomizedSeed}
           lastPreview={lastPreview}
-          instanceId={instanceId}
-          instances={instances}
+          continuous={continuous}
+          continuousDisabled={
+            !instances.some((instance) => instance.id === instanceId && instance.ready)
+          }
           busy={busy}
           error={error}
           onPrompt={setPrompt}
@@ -258,7 +308,7 @@ export function App() {
             setRandomizedSeed(enabled)
             setSeed(enabled ? "" : randomSeed())
           }}
-          onInstance={setInstanceId}
+          onContinuous={setContinuous}
           onSubmit={generate}
         />
         <div className="min-w-0">
@@ -266,6 +316,8 @@ export function App() {
             <Fleet
               instances={instances}
               now={now}
+              instanceId={instanceId}
+              onInstance={setInstanceId}
               onAction={(path, init) => void instanceAction(path, init)}
             />
           </div>
@@ -276,6 +328,7 @@ export function App() {
             zoom={zoom}
             onRefresh={refresh}
             onResend={resend}
+            onSendConfig={(config) => void submit(config)}
             onHoverPreview={setLastPreview}
           />
         </div>

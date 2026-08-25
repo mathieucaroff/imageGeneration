@@ -38,3 +38,15 @@ type GalleryPreview =
 type GalleryTile =
   | { kind: "config"; id: string; config: Config; previous?: Config; color: string }
   | { kind: "job"; id: string; job: Job; color: string }
+
+type SavedGenerationConfig = {
+  prompt: string
+  negative: string
+  width: number
+  height: number
+  seed: number | ""
+  randomizedSeed: boolean
+  instanceId: number | ""
+}
+
+type CreateJobResult = { queued: true; job: Job } | { queued: false; reason: "queue-full" }

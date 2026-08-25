@@ -8,7 +8,8 @@ const idleMinutes = Number(process.env.IDLE_MINUTES ?? 20)
 const app = new Hono()
 const jobs = createJobService()
 
-registerRoutes(app, jobs)
+const auth = registerRoutes(app, jobs)
+await auth.load()
 await jobs.load()
 startInstanceSweep(idleMinutes)
 

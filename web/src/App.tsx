@@ -5,7 +5,6 @@ import { StatusDot } from "./components/StatusDot"
 import { Fleet } from "./Fleet"
 import { Gallery } from "./Gallery"
 import { GenerationPanel } from "./GenerationPanel"
-import type { GalleryPreview } from "./gallery-model"
 import { Login } from "./Login"
 import { randomSeed } from "./utils"
 

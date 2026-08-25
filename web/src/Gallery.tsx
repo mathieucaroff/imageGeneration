@@ -1,179 +1,27 @@
 import { useEffect, useMemo, useState, type CSSProperties } from "react"
 import { Button } from "./components/Button"
+import { IconButton } from "./components/IconButton"
 import { Modal } from "./components/Modal"
-import { buildGalleryTiles, type GalleryPreview, type GalleryTile } from "./gallery-model"
-import { diffTags, elapsedSeconds } from "./utils"
+import { Switch } from "./components/Switch"
+import { ConfigTile } from "./gallery/ConfigTile"
+import { ConfigViewer } from "./gallery/ConfigViewer"
+import { GalleryNavigation } from "./gallery/GalleryNavigation"
+import { JobTile } from "./gallery/JobTile"
+import { buildGalleryTiles } from "./gallery/model"
 
-function DiffText({ value, previous }: { value: string; previous?: string }) {
-  return (
-    <span>
-      {diffTags(value, previous).map((tag, index, tags) => (
-        <span
-          className={
-            tag.kind === "added" ? "text-[#cfdc6a]" : tag.kind === "removed" ? "text-[#dc9b8f]" : ""
-          }
-          key={`${tag.text}-${index}`}
-        >
-          {tag.text}
-          {index < tags.length - 1 ? ", " : ""}
-        </span>
-      ))}
-    </span>
-  )
-}
+const likedImageStorageKey = "pony-studio.liked-image-ids.v1"
 
-function ConfigTile({
-  tile,
-  onHover,
-  onOpen,
-  onSend,
-}: {
-  tile: Extract<GalleryTile, { kind: "config" }>
-  onHover: () => void
-  onOpen: () => void
-  onSend: () => void
-}) {
-  return (
-    <article
-      className="group relative aspect-square w-[min(var(--tile-size),calc(100vw-2rem))] overflow-hidden border-[0.375rem] bg-[#080a08] sm:w-[min(var(--tile-size),calc(100vw-5rem))] sm:border-[1rem]"
-      style={{ borderColor: tile.color }}
-    >
-      <button
-        className="size-full p-4 text-left text-[#d7d8ce] outline-offset-4 outline-[#d4df6f]"
-        title="View full configuration"
-        type="button"
-        onClick={onOpen}
-        onMouseEnter={onHover}
-        onFocus={onHover}
-      >
-        <div className="font-['DM_Mono'] text-[10px] font-bold tracking-[.14em]">CONFIG</div>
-        <div className="mt-4 line-clamp-6 text-xs leading-relaxed">
-          <DiffText value={tile.config.prompt} previous={tile.previous?.prompt} />
-        </div>
-        <div className="mt-3 line-clamp-3 text-[10px] leading-relaxed opacity-75">
-          <DiffText value={tile.config.negative_prompt} previous={tile.previous?.negative_prompt} />
-        </div>
-        <div className="mt-4 font-['DM_Mono'] text-[10px]">
-          <div
-            className={
-              tile.previous &&
-              (tile.config.width !== tile.previous.width ||
-                tile.config.height !== tile.previous.height)
-                ? "font-bold"
-                : ""
-            }
-          >
-            {tile.config.width} x {tile.config.height}
-          </div>
-          <div className="mt-1">seed {tile.config.seed}</div>
-        </div>
-      </button>
-      <div className="absolute right-2 bottom-2 opacity-0 transition-opacity group-focus-within:opacity-100 group-hover:opacity-100">
-        <Button className="px-2 py-1.5 text-[11px] font-bold" variant="primary" onClick={onSend}>
-          Send
-        </Button>
-      </div>
-    </article>
-  )
-}
-
-function JobTile({
-  tile,
-  now,
-  zoom,
-  onHover,
-  onOpen,
-  onResend,
-}: {
-  tile: Extract<GalleryTile, { kind: "job" }>
-  now: number
-  zoom: number
-  onHover: () => void
-  onOpen: () => void
-  onResend: () => void
-}) {
-  const { job } = tile
-  const imageUrl = zoom > 350 && job.imageUrl ? job.imageUrl : job.thumbnailUrl
-  return (
-    <article
-      className="group relative aspect-square w-[min(var(--tile-size),calc(100vw-2rem))] overflow-hidden border-[0.375rem] bg-[#080a08] sm:w-[min(var(--tile-size),calc(100vw-5rem))] sm:border-[1rem]"
-      style={{ borderColor: tile.color }}
-    >
-      {job.status === "completed" && imageUrl ? (
-        <button
-          className="block size-full cursor-zoom-in"
-          title="View full image"
-          type="button"
-          onClick={onOpen}
-          onMouseEnter={onHover}
-          onFocus={onHover}
-        >
-          <img className="size-full object-contain" src={imageUrl} alt={job.config.prompt} />
-        </button>
-      ) : (
-        <div className="grid size-full place-content-center justify-items-center gap-2 p-5 text-center font-['DM_Mono'] text-xs text-[#d7d8ce]">
-          {job.status === "queued" ? (
-            <>
-              <span>Queued #{(job.position ?? 0) + 1}</span>
-              <span className="text-[10px]">{elapsedSeconds(job.createdAt, now)}</span>
-            </>
-          ) : (
-            <>
-              <span>Rendering</span>
-              <span className="text-[10px]">
-                Queue: {elapsedSeconds(job.createdAt, job.startedAt!)}
-              </span>
-              <span className="text-[10px]">
-                Rendering: {elapsedSeconds(job.startedAt, job.finishedAt ?? now)}
-              </span>
-            </>
-          )}
-        </div>
-      )}
-      <div className="pointer-events-none absolute inset-x-0 bottom-0 flex justify-between bg-linear-to-t from-[#080a08dd] to-transparent p-2.5 opacity-0 transition-opacity group-focus-within:opacity-100 group-hover:opacity-100">
-        <span className="font-['DM_Mono'] text-[10px] text-[#d7d8ce]">
-          {job.status} · seed {job.config.seed}
-        </span>
-        <Button
-          className="pointer-events-auto px-2 py-1.5 text-[11px] font-bold"
-          variant="primary"
-          onClick={onResend}
-        >
-          Re-send
-        </Button>
-      </div>
-    </article>
-  )
-}
-
-function ConfigViewer({ config, onDismiss }: { config: Config; onDismiss: () => void }) {
-  return (
-    <Modal labelledBy="config-viewer-title" maxWidth="max-w-2xl" onBackdropClick={onDismiss}>
-      <h2 className="font-['Fraunces'] text-xl text-[#e9e5dc]" id="config-viewer-title">
-        Configuration
-      </h2>
-      <dl className="mt-5 grid gap-4 text-sm text-[#d7d8ce]">
-        <div>
-          <dt className="font-['DM_Mono'] text-[10px] tracking-[.14em] text-[#8d9286]">PROMPT</dt>
-          <dd className="mt-1 whitespace-pre-wrap">{config.prompt}</dd>
-        </div>
-        <div>
-          <dt className="font-['DM_Mono'] text-[10px] tracking-[.14em] text-[#8d9286]">
-            NEGATIVE PROMPT
-          </dt>
-          <dd className="mt-1 whitespace-pre-wrap">{config.negative_prompt}</dd>
-        </div>
-        <div>
-          <dt className="font-['DM_Mono'] text-[10px] tracking-[.14em] text-[#8d9286]">
-            DIMENSIONS
-          </dt>
-          <dd className="mt-1">
-            {config.width} x {config.height}
-          </dd>
-        </div>
-      </dl>
-    </Modal>
-  )
+function loadLikedImageIds() {
+  try {
+    const saved = JSON.parse(localStorage.getItem(likedImageStorageKey) ?? "[]")
+    return new Set(
+      Array.isArray(saved)
+        ? saved.filter((value): value is string => typeof value === "string")
+        : [],
+    )
+  } catch {
+    return new Set<string>()
+  }
 }
 
 export function Gallery({
@@ -197,14 +45,42 @@ export function Gallery({
 }) {
   const [selectedTile, setSelectedTile] = useState<GalleryTile>()
   const [isRefreshing, setIsRefreshing] = useState(false)
-  const tiles = useMemo(() => buildGalleryTiles(jobs), [jobs])
+  const [likedImageIds, setLikedImageIds] = useState(loadLikedImageIds)
+  const [likedOnly, setLikedOnly] = useState(false)
+  const visibleJobs = useMemo(
+    () => (likedOnly ? jobs.filter((job) => likedImageIds.has(job.id)) : jobs),
+    [jobs, likedImageIds, likedOnly],
+  )
+  const tiles = useMemo(() => buildGalleryTiles(visibleJobs), [visibleJobs])
+  const selectedTileIndex = selectedTile
+    ? tiles.findIndex((tile) => tile.id === selectedTile.id)
+    : -1
+
+  function selectAdjacentTile(offset: -1 | 1) {
+    const adjacentTile = tiles[selectedTileIndex + offset]
+    if (adjacentTile) setSelectedTile(adjacentTile)
+  }
+
+  function toggleLike(jobId: string) {
+    setLikedImageIds((current) => {
+      const next = new Set(current)
+      if (next.has(jobId)) next.delete(jobId)
+      else next.add(jobId)
+      localStorage.setItem(likedImageStorageKey, JSON.stringify([...next]))
+      return next
+    })
+  }
+
   useEffect(() => {
     const dismissOnEscape = (event: KeyboardEvent) => {
       if (event.key === "Escape") setSelectedTile(undefined)
+      if (selectedTile && event.key === "ArrowLeft") selectAdjacentTile(-1)
+      if (selectedTile && event.key === "ArrowRight") selectAdjacentTile(1)
     }
     window.addEventListener("keydown", dismissOnEscape)
     return () => window.removeEventListener("keydown", dismissOnEscape)
-  }, [])
+  }, [selectedTileIndex, tiles])
+
   async function refreshGallery() {
     setIsRefreshing(true)
     try {
@@ -213,6 +89,7 @@ export function Gallery({
       setIsRefreshing(false)
     }
   }
+
   return (
     <main className="min-w-0 px-3 py-7 sm:px-6 md:px-10 md:py-11">
       <div className="mb-6 flex items-end justify-between gap-5">
@@ -227,14 +104,17 @@ export function Gallery({
             </span>
           </h2>
         </div>
-        <Button
-          className="px-2 py-1 text-lg disabled:cursor-wait disabled:opacity-60"
-          disabled={isRefreshing}
-          title="Refresh instances and jobs"
-          onClick={() => void refreshGallery()}
-        >
-          <span className={isRefreshing ? "inline-block animate-spin" : "inline-block"}>⟳</span>
-        </Button>
+        <div className="flex items-center gap-3">
+          <Switch checked={likedOnly} label="Liked only" onChange={setLikedOnly} />
+          <Button
+            className="px-2 py-1 text-lg disabled:cursor-wait disabled:opacity-60"
+            disabled={isRefreshing}
+            title="Refresh instances and jobs"
+            onClick={() => void refreshGallery()}
+          >
+            <span className={isRefreshing ? "inline-block animate-spin" : "inline-block"}>⟳</span>
+          </Button>
+        </div>
       </div>
       {tiles.length > 0 && (
         <div
@@ -257,9 +137,11 @@ export function Gallery({
                   tile={tile}
                   now={now}
                   zoom={zoom}
+                  liked={likedImageIds.has(tile.job.id)}
                   onHover={() => onHoverPreview({ kind: "image", job: tile.job })}
                   onOpen={() => setSelectedTile(tile)}
                   onResend={() => onResend(tile.job)}
+                  onToggleLike={() => toggleLike(tile.job.id)}
                 />
               )}
             </div>
@@ -282,8 +164,9 @@ export function Gallery({
           <p className="text-xs">Write a prompt and send your first image into the queue.</p>
         </div>
       )}
-      {selectedTile?.kind === "job" && selectedTile.job.imageUrl && (
+      {selectedTile?.kind === "job" && (
         <Modal
+          className="relative"
           labelledBy="image-viewer-title"
           maxWidth="max-w-[calc(100vw-4rem)]"
           onBackdropClick={() => setSelectedTile(undefined)}
@@ -292,15 +175,47 @@ export function Gallery({
           <h2 className="sr-only" id="image-viewer-title">
             {selectedTile.job.config.prompt}
           </h2>
-          <img
-            className="max-h-[calc(100vh-4rem)] max-w-full object-contain"
-            src={selectedTile.job.imageUrl}
-            alt={selectedTile.job.config.prompt}
+          <GalleryNavigation
+            canGoPrevious={selectedTileIndex > 0}
+            canGoNext={selectedTileIndex >= 0 && selectedTileIndex < tiles.length - 1}
+            onPrevious={() => selectAdjacentTile(-1)}
+            onNext={() => selectAdjacentTile(1)}
           />
+          <IconButton
+            className={`absolute top-14 right-4 ${
+              likedImageIds.has(selectedTile.job.id)
+                ? "border-[#f48aab] bg-[#f48aab] text-[#20241d] hover:border-[#ffb0c5] hover:text-[#20241d]"
+                : ""
+            }`}
+            title={likedImageIds.has(selectedTile.job.id) ? "Unlike image" : "Like image"}
+            onClick={() => toggleLike(selectedTile.job.id)}
+          >
+            <span aria-hidden="true" className="text-lg leading-none">
+              {likedImageIds.has(selectedTile.job.id) ? "♥" : "♡"}
+            </span>
+          </IconButton>
+          {selectedTile.job.imageUrl ? (
+            <img
+              className="max-h-[calc(100vh-4rem)] max-w-full object-contain"
+              src={selectedTile.job.imageUrl}
+              alt={selectedTile.job.config.prompt}
+            />
+          ) : (
+            <div className="grid min-h-48 min-w-72 place-items-center bg-[#20231f] px-16 text-sm text-[#aeb1a5]">
+              Full-size image is not available yet.
+            </div>
+          )}
         </Modal>
       )}
       {selectedTile?.kind === "config" && (
-        <ConfigViewer config={selectedTile.config} onDismiss={() => setSelectedTile(undefined)} />
+        <ConfigViewer
+          config={selectedTile.config}
+          canGoPrevious={selectedTileIndex > 0}
+          canGoNext={selectedTileIndex >= 0 && selectedTileIndex < tiles.length - 1}
+          onDismiss={() => setSelectedTile(undefined)}
+          onPrevious={() => selectAdjacentTile(-1)}
+          onNext={() => selectAdjacentTile(1)}
+        />
       )}
     </main>
   )

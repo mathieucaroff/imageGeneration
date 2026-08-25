@@ -1,10 +1,3 @@
-export type GalleryPreview =
-  { kind: "image"; job: Job } | { kind: "config"; config: Config; color: string }
-
-export type GalleryTile =
-  | { kind: "config"; id: string; config: Config; previous?: Config; color: string }
-  | { kind: "job"; id: string; job: Job; color: string }
-
 function normalizeTag(tag: string) {
   const value = tag.trim().replaceAll("_", " ").replace(/\s+/g, " ")
   const match = value.match(/^(\(+|\[+)([^()[\]]+)(\)+|\]+)$/)
@@ -47,7 +40,7 @@ export function configColor(config: Config) {
   const channels = [first, second]
   channels.splice(saturated, 0, saturatedValue)
   const colorChannels = channels.map((channel) => channel.toString(16).padStart(2, "0")).join("")
-  const alphaChannel = (90).toString(16) // 90 / 256
+  const alphaChannel = (90).toString(16)
   return `#${colorChannels}${alphaChannel}`
 }
 

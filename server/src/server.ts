@@ -4,7 +4,7 @@ import { createJobService } from "./job-service"
 import { registerRoutes } from "./routes"
 
 const port = Number(process.env.PORT ?? 3000)
-const idleMinutes = Number(process.env.IDLE_MINUTES ?? 20)
+const idleMinutes = Number(process.env.IDLE_MINUTES ?? 30)
 const app = new Hono()
 const jobs = createJobService()
 

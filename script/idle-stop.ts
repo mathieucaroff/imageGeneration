@@ -6,7 +6,7 @@
 import { stopOrDestroyInstance } from "../lib/instance-lifecycle"
 import { sweepInstances } from "../lib/instance-sweep"
 
-const DEFAULT_IDLE_MINUTES = 20
+const DEFAULT_IDLE_MINUTES = 30
 const POLL_MS = 60_000
 
 function parseArgs(argv: string[]): { idleMinutes: number; once: boolean } {

@@ -1,8 +1,8 @@
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { Button } from "./components/Button"
 import { Modal } from "./components/Modal"
-import { StatusDot } from "./components/StatusDot"
 import { elapsedSeconds, shortInstanceId } from "./utils"
+import { StatusIndicator } from "./components/StatusIndicator"
 
 function isStopped(instance: Instance) {
   return instance.actual_status === "stopped" || instance.cur_state === "stopped"
@@ -12,6 +12,17 @@ type PendingAction =
   | { kind: "delete"; instance: Instance }
   | { kind: "stop"; instance: Instance }
   | { kind: "stop-all" }
+
+const provisionCountStorageKey = "pony-studio.provision-count.v1"
+
+function loadProvisionCount() {
+  try {
+    const value = localStorage.getItem(provisionCountStorageKey)
+    return value && /^[1-9]$/.test(value) ? value : ""
+  } catch {
+    return ""
+  }
+}
 
 export function Fleet({
   instances,
@@ -24,26 +35,86 @@ export function Fleet({
   now: number
   instanceId: number | ""
   onInstance: (id: number | "") => void
-  onAction: (path: string, init?: RequestInit) => void
+  onAction: (path: string, init?: RequestInit) => Promise<void>
 }) {
   const [pendingAction, setPendingAction] = useState<PendingAction>()
-  const [provisionCount, setProvisionCount] = useState("")
+  const [provisionCount, setProvisionCount] = useState(loadProvisionCount)
+  const [provisioning, setProvisioning] = useState<{ instanceCount: number }>()
+  const [changingInstances, setChangingInstances] = useState<
+    Record<number, { actualStatus: string; curState: string }>
+  >({})
 
-  function confirmAction() {
+  useEffect(() => {
+    if (provisioning && instances.length !== provisioning.instanceCount) setProvisioning(undefined)
+    setChangingInstances((current) =>
+      Object.fromEntries(
+        Object.entries(current).filter(([id, previous]) => {
+          const instance = instances.find((candidate) => candidate.id === Number(id))
+          return (
+            instance &&
+            instance.actual_status === previous.actualStatus &&
+            instance.cur_state === previous.curState
+          )
+        }),
+      ),
+    )
+  }, [instances, provisioning])
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(provisionCountStorageKey, provisionCount)
+    } catch {
+      /* Provisioning remains available when browser storage is unavailable. */
+    }
+  }, [provisionCount])
+
+  async function requestInstanceChange(instance: Instance, path: string, init: RequestInit) {
+    setChangingInstances((current) => ({
+      ...current,
+      [instance.id]: { actualStatus: instance.actual_status, curState: instance.cur_state },
+    }))
+    try {
+      await onAction(path, init)
+    } catch {
+      setChangingInstances((current) => {
+        const { [instance.id]: _, ...remaining } = current
+        return remaining
+      })
+    }
+  }
+
+  async function confirmAction() {
     if (!pendingAction) return
     if (pendingAction.kind === "delete")
-      onAction(`/instances/${pendingAction.instance.id}`, { method: "DELETE" })
+      void requestInstanceChange(
+        pendingAction.instance,
+        `/instances/${pendingAction.instance.id}`,
+        {
+          method: "DELETE",
+        },
+      )
     else if (pendingAction.kind === "stop")
-      onAction(`/instances/${pendingAction.instance.id}/stop`, { method: "POST" })
+      void requestInstanceChange(
+        pendingAction.instance,
+        `/instances/${pendingAction.instance.id}/stop`,
+        {
+          method: "POST",
+        },
+      )
     else onAction("/instances/stop-all", { method: "POST" })
     setPendingAction(undefined)
   }
 
   async function provision() {
     const count = provisionCount === "" ? 1 : Number(provisionCount)
-    for (let instance = 0; instance < count; instance += 1) {
-      onAction("/instances/provision", { method: "POST" })
-      await new Promise((resolve) => setTimeout(resolve, 500))
+    setProvisioning({ instanceCount: instances.length })
+    try {
+      for (let instance = 0; instance < count; instance += 1) {
+        await onAction("/instances/provision", { method: "POST" })
+        await new Promise((resolve) => setTimeout(resolve, 500))
+      }
+    } catch {
+      setProvisioning(undefined)
     }
   }
 
@@ -73,10 +144,25 @@ export function Fleet({
             className="flex items-center gap-2 bg-[#20231f] px-2 py-1.5 font-['DM_Mono'] text-[11px] text-[#bfc2b5]"
             key={instance.id}
           >
-            <StatusDot ready={instance.ready} />#{shortInstanceId(instance.id)}{" "}
-            {instance.provisioning} ${instance.dph_total.toFixed(2)}/h
+            <StatusIndicator changing={!!changingInstances[instance.id]} ready={instance.ready} />#
+            {shortInstanceId(instance.id)} {instance.provisioning} ${instance.dph_total.toFixed(2)}
+            /h
             {!instance.ready && (
               <span className="text-[#8d9286]">{elapsedSeconds(instance.start_date, now)}</span>
+            )}
+            {isStopped(instance) && (
+              <Button
+                className="px-0.5 text-[#777d70] hover:text-[#cfdc6a]"
+                variant="quiet"
+                title="Start instance"
+                onClick={() =>
+                  void requestInstanceChange(instance, `/instances/${instance.id}/start`, {
+                    method: "POST",
+                  })
+                }
+              >
+                ▶
+              </Button>
             )}
             <Button
               className="px-0.5 text-[#777d70] hover:text-[#dc9b8f]"
@@ -107,8 +193,12 @@ export function Fleet({
                 setProvisionCount(event.target.value)
             }}
           />
-          <Button className="px-3 text-[12px]" onClick={provision}>
-            + Provision
+          <Button
+            className="px-3 text-[12px]"
+            disabled={Boolean(provisioning)}
+            onClick={() => void provision()}
+          >
+            {provisioning ? <span className="inline-block animate-spin">⟳</span> : "+ Provision"}
           </Button>
         </div>
         <Button

@@ -4,15 +4,13 @@
   "workspaces": {
     "": {
       "name": "pony-diffusion-vastai",
-      "dependencies": {
-        "typescript": "^7.0.2",
-      },
       "devDependencies": {
         "@types/bun": "^1.3.14",
         "@types/node": "^26.2.0",
         "prettier": "^3.9.6",
         "prettier-plugin-sort-json": "^4.2.0",
         "prettier-plugin-tailwindcss": "^0.8.1",
+        "typescript": "^7.0.2",
       },
     },
     "server": {

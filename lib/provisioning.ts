@@ -2,7 +2,7 @@ import { execFile } from "node:child_process"
 import { fileURLToPath } from "node:url"
 import { promisify } from "node:util"
 import { CHECKPOINT_DIR, CHECKPOINT_FILE, CHECKPOINT_URL } from "./pony"
-import { type Instance } from "./vastai"
+import { findExposedPort, type Instance } from "./vastai"
 
 const execFileAsync = promisify(execFile)
 
@@ -53,8 +53,8 @@ const SSH_KEY_PATH = fileURLToPath(new URL("../.ssh/vastai_ed25519", import.meta
 
 export async function provisioningStatus(instance: Instance): Promise<string> {
   if (instance.cur_state === "stopped") return "poweredoff"
-  if (instance.actual_status !== "running") return "pending"
-  if (!instance.ssh_host || !instance.ssh_port) return "unavailable"
+  if (instance.actual_status !== "running") return `pending(${instance.actual_status})`
+  if (!instance.ssh_host || !instance.ssh_port) return "no-ssh-location"
 
   try {
     const { stdout } = await execFileAsync(
@@ -76,9 +76,31 @@ export async function provisioningStatus(instance: Instance): Promise<string> {
       ],
       { timeout: 10_000 },
     )
-    return provisioningState(stdout)
+    const status = provisioningState(stdout)
+    if (status !== "ready" && status !== "cached") {
+      return status
+    }
+    if (!(await isComfyUiReady(instance))) {
+      return `waiting-for-comfyui(${status})`
+    }
+    return status
   } catch (e) {
     console.log("error", e)
-    return "unavailable"
+    const errMessage = e instanceof Error ? e.message : String(e)
+    return `ssh-failed(${errMessage})`
+  }
+}
+
+export async function isComfyUiReady(instance: Instance): Promise<boolean> {
+  let endpoint = findExposedPort(instance, 8188)
+  if (!endpoint) return false
+  try {
+    const response = await fetch(`http://${endpoint.host}:${endpoint.port}/system_stats`, {
+      headers: instance.jupyter_token ? { Authorization: `Bearer ${instance.jupyter_token}` } : {},
+      signal: AbortSignal.timeout(5_000),
+    })
+    return response.ok
+  } catch {
+    return false
   }
 }

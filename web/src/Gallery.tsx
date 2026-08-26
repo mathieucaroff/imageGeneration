@@ -31,8 +31,11 @@ export function Gallery({
   zoom,
   onRefresh,
   onResend,
+  onFail,
   onSendConfig,
   onHoverPreview,
+  previewToOpen,
+  onPreviewOpened,
 }: {
   jobs: Job[]
   jobsLoaded: boolean
@@ -40,8 +43,11 @@ export function Gallery({
   zoom: number
   onRefresh: () => Promise<void>
   onResend: (job: Job) => void
+  onFail: (job: Job) => Promise<void>
   onSendConfig: (config: Config) => void
   onHoverPreview: (preview: GalleryPreview) => void
+  previewToOpen?: GalleryPreview
+  onPreviewOpened: () => void
 }) {
   const [selectedTile, setSelectedTile] = useState<GalleryTile>()
   const [isRefreshing, setIsRefreshing] = useState(false)
@@ -55,10 +61,28 @@ export function Gallery({
   const selectedTileIndex = selectedTile
     ? tiles.findIndex((tile) => tile.id === selectedTile.id)
     : -1
+  const configTileIndices = tiles.flatMap((tile, index) => (tile.kind === "config" ? [index] : []))
+  const selectedConfigIndex = configTileIndices.indexOf(selectedTileIndex)
+
+  useEffect(() => {
+    if (!previewToOpen) return
+    const matchingTile = tiles.find((tile) =>
+      previewToOpen.kind === "image"
+        ? tile.kind === "job" && tile.job.id === previewToOpen.job.id
+        : tile.kind === "config" &&
+          JSON.stringify(tile.config) === JSON.stringify(previewToOpen.config),
+    )
+    if (matchingTile) setSelectedTile(matchingTile)
+    onPreviewOpened()
+  }, [previewToOpen, tiles, onPreviewOpened])
 
   function selectAdjacentTile(offset: -1 | 1) {
     const adjacentTile = tiles[selectedTileIndex + offset]
     if (adjacentTile) setSelectedTile(adjacentTile)
+  }
+  function selectAdjacentConfig(offset: -1 | 1) {
+    const targetIndex = configTileIndices[selectedConfigIndex + offset]
+    if (targetIndex !== undefined) setSelectedTile(tiles[targetIndex])
   }
 
   function toggleLike(jobId: string) {
@@ -141,6 +165,7 @@ export function Gallery({
                   onHover={() => onHoverPreview({ kind: "image", job: tile.job })}
                   onOpen={() => setSelectedTile(tile)}
                   onResend={() => onResend(tile.job)}
+                  onFail={() => onFail(tile.job)}
                   onToggleLike={() => toggleLike(tile.job.id)}
                 />
               )}
@@ -210,11 +235,18 @@ export function Gallery({
       {selectedTile?.kind === "config" && (
         <ConfigViewer
           config={selectedTile.config}
+          previous={selectedTile.previous}
           canGoPrevious={selectedTileIndex > 0}
           canGoNext={selectedTileIndex >= 0 && selectedTileIndex < tiles.length - 1}
+          canJumpPrevious={selectedConfigIndex > 0}
+          canJumpNext={
+            selectedConfigIndex >= 0 && selectedConfigIndex < configTileIndices.length - 1
+          }
           onDismiss={() => setSelectedTile(undefined)}
           onPrevious={() => selectAdjacentTile(-1)}
           onNext={() => selectAdjacentTile(1)}
+          onJumpPrevious={() => selectAdjacentConfig(-1)}
+          onJumpNext={() => selectAdjacentConfig(1)}
         />
       )}
     </main>

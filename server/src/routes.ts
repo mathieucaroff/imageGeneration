@@ -1,5 +1,5 @@
 import type { Hono } from "hono"
-import { buildOnstartScript, provisioningStatus } from "../../lib/provisioning"
+import { buildOnstartScript, isComfyUiReady, provisioningStatus } from "../../lib/provisioning"
 import { stopOrDestroyInstance } from "../../lib/instance-lifecycle"
 import { CHECKPOINT_FILE, COMFYUI_PORT } from "../../lib/pony"
 import { MAX_PRICE_PER_HOUR } from "../../lib/pricing"
@@ -35,11 +35,14 @@ export function registerRoutes(app: Hono, jobs: JobService) {
       await Promise.all(
         (await listInstances()).map(async (instance) => {
           const provisioning = await provisioningStatus(instance)
+          const ready =
+            instance.actual_status === "running" &&
+            ["ready", "cached"].includes(provisioning) &&
+            (await isComfyUiReady(instance))
           return {
             ...instance,
             provisioning,
-            ready:
-              instance.actual_status === "running" && ["ready", "cached"].includes(provisioning),
+            ready,
           }
         }),
       ),
@@ -91,6 +94,10 @@ export function registerRoutes(app: Hono, jobs: JobService) {
   })
 
   app.get("/api/jobs", (c) => c.json(jobs.list()))
+  app.post("/api/jobs/:id/fail", async (c) => {
+    if (!(await jobs.fail(c.req.param("id")))) return c.json({ error: "Job is not active" }, 409)
+    return c.json({ failed: true })
+  })
   app.post("/api/jobs", async (c) => {
     const body = await c.req.json<Partial<JobConfig> & { maxQueued?: number }>()
     const instanceId = Number(body.instanceId)

@@ -1,4 +1,4 @@
-import type { FormEvent } from "react"
+import type { FormEvent, KeyboardEvent } from "react"
 import { Button } from "./components/Button"
 import { ErrorNotice } from "./components/ErrorNotice"
 import { FormField } from "./components/FormField"
@@ -12,8 +12,9 @@ type Props = {
   seed: number | ""
   randomizedSeed: boolean
   lastPreview?: GalleryPreview
+  onOpenPreview: (preview: GalleryPreview) => void
   continuous: boolean
-  continuousDisabled: boolean
+  generationDisabled: boolean
   busy: boolean
   error: string
   onPrompt: (value: string) => void
@@ -29,6 +30,16 @@ type Props = {
 export function GenerationPanel(props: Props) {
   const field =
     "h-10 w-full border border-[#3a3e37] bg-[#20231f] px-3 text-[13px] text-[#e7e5dc] outline-none focus:border-[#bfc963]"
+  function submitOnCtrlEnter(event: KeyboardEvent<HTMLFormElement>) {
+    if (
+      event.key === "Enter" &&
+      event.ctrlKey &&
+      (event.target instanceof HTMLInputElement || event.target instanceof HTMLTextAreaElement)
+    ) {
+      event.preventDefault()
+      event.currentTarget.requestSubmit()
+    }
+  }
   return (
     <aside className="border-b border-[#30332e] px-5 py-8 md:sticky md:top-[68px] md:h-[calc(100vh-68px)] md:overflow-y-auto md:border-r md:border-b-0 md:px-8 lg:px-10 lg:py-14">
       <div className="font-['DM_Mono'] text-[10px] tracking-[.14em] text-[#8d9286]">
@@ -44,17 +55,9 @@ export function GenerationPanel(props: Props) {
           <span className="font-['DM_Mono'] text-[10px] tracking-[.14em] text-[#8d9286]">
             GENERATION MODE
           </span>
-          <div
-            aria-disabled={props.continuousDisabled}
-            className={`flex border ${
-              props.continuousDisabled
-                ? "cursor-not-allowed border-[#30332e] opacity-35"
-                : "border-[#42473d]"
-            }`}
-          >
+          <div className="flex border border-[#42473d]">
             <Button
-              className="size-8 text-sm disabled:cursor-not-allowed"
-              disabled={props.continuousDisabled}
+              className="size-8 text-sm"
               title="One-at-a-time generation"
               variant={props.continuous ? "quiet" : "primary"}
               onClick={() => props.onContinuous(false)}
@@ -62,8 +65,7 @@ export function GenerationPanel(props: Props) {
               1
             </Button>
             <Button
-              className="size-8 text-lg disabled:cursor-not-allowed"
-              disabled={props.continuousDisabled}
+              className="size-8 text-lg"
               title="Continuous generation"
               variant={props.continuous ? "primary" : "quiet"}
               onClick={() => props.onContinuous(true)}
@@ -72,17 +74,16 @@ export function GenerationPanel(props: Props) {
             </Button>
           </div>
         </div>
-        {props.continuousDisabled && (
-          <p className="mt-2 text-[10px] text-[#777c70]">
-            Select a ready instance to enable modes.
-          </p>
-        )}
       </div>
-      <form className="grid max-w-[620px] gap-5" onSubmit={props.onSubmit}>
+      <form
+        className="grid max-w-[620px] gap-5"
+        onKeyDown={submitOnCtrlEnter}
+        onSubmit={props.onSubmit}
+      >
         <FormField label="Prompt">
           <textarea
-            className="resize-y border border-[#3a3e37] bg-[#20231f] p-3 text-[13px] leading-relaxed text-[#e7e5dc] outline-none focus:border-[#bfc963]"
-            rows={5}
+            className="resize-y border border-[#3a3e37] bg-[#20231f] p-3 text-[16px] leading-relaxed text-[#e7e5dc] outline-none focus:border-[#bfc963]"
+            rows={12}
             required
             value={props.prompt}
             onChange={(event) => props.onPrompt(event.target.value)}
@@ -141,7 +142,7 @@ export function GenerationPanel(props: Props) {
         <Button
           className="flex justify-between px-4 py-3 text-[12px] font-bold disabled:cursor-not-allowed disabled:opacity-45"
           variant="primary"
-          disabled={props.busy || props.continuousDisabled}
+          disabled={props.busy || props.generationDisabled}
           type="submit"
         >
           {props.busy ? "Queueing..." : "Generate image"}
@@ -164,15 +165,25 @@ export function GenerationPanel(props: Props) {
         </div>
         {props.lastPreview?.kind === "image" &&
         (props.lastPreview.job.thumbnailUrl || props.lastPreview.job.imageUrl) ? (
-          <img
-            className="mt-3 aspect-square w-full object-cover"
-            src={props.lastPreview.job.thumbnailUrl ?? props.lastPreview.job.imageUrl}
-            alt={props.lastPreview.job.config.prompt}
-          />
+          <button
+            className="mt-3 block w-full cursor-zoom-in outline-offset-4 outline-[#d4df6f]"
+            title="View full image"
+            type="button"
+            onClick={() => props.onOpenPreview(props.lastPreview!)}
+          >
+            <img
+              className="aspect-square w-full object-cover"
+              src={props.lastPreview.job.thumbnailUrl ?? props.lastPreview.job.imageUrl}
+              alt={props.lastPreview.job.config.prompt}
+            />
+          </button>
         ) : props.lastPreview?.kind === "config" ? (
-          <div
-            className="mt-3 border-[0.375rem] border-solid bg-[#080a08] p-3 text-[#d7d8ce] sm:border-[1rem]"
+          <button
+            className="mt-3 block w-full cursor-pointer border-[0.375rem] border-solid bg-[#080a08] p-3 text-left text-[#d7d8ce] outline-offset-4 outline-[#d4df6f] sm:border-[1rem]"
             style={{ borderColor: props.lastPreview.color }}
+            title="View full configuration"
+            type="button"
+            onClick={() => props.onOpenPreview(props.lastPreview!)}
           >
             <div className="font-['DM_Mono'] text-[10px] font-bold tracking-[.14em]">CONFIG</div>
             <div className="mt-3 text-xs leading-relaxed whitespace-pre-wrap">
@@ -186,7 +197,7 @@ export function GenerationPanel(props: Props) {
               <br />
               seed {props.lastPreview.config.seed}
             </div>
-          </div>
+          </button>
         ) : (
           <div className="mt-3 grid aspect-square place-items-center border border-[#3a3e37] bg-[#20231f] px-5 text-center font-['DM_Mono'] text-[10px] text-[#777c70]">
             No completed images yet

@@ -11,6 +11,7 @@ export function JobTile({
   onHover,
   onOpen,
   onResend,
+  onFail,
   onToggleLike,
 }: {
   tile: Extract<GalleryTile, { kind: "job" }>
@@ -20,11 +21,14 @@ export function JobTile({
   onHover: () => void
   onOpen: () => void
   onResend: () => void
+  onFail: () => Promise<void>
   onToggleLike: () => void
 }) {
   const { job } = tile
   const imageUrl = zoom > 350 && job.imageUrl ? job.imageUrl : job.thumbnailUrl
   const [isCopying, setIsCopying] = useState(false)
+  const [isFailing, setIsFailing] = useState(false)
+  const isActive = job.status === "queued" || job.status === "running"
 
   async function copyImage() {
     if (!job.imageUrl) return
@@ -45,6 +49,15 @@ export function JobTile({
       }
     } finally {
       setIsCopying(false)
+    }
+  }
+
+  async function failJob() {
+    setIsFailing(true)
+    try {
+      await onFail()
+    } finally {
+      setIsFailing(false)
     }
   }
 
@@ -114,13 +127,25 @@ export function JobTile({
         <span className="font-['DM_Mono'] text-[10px] text-[#d7d8ce]">
           {job.status} · seed {job.config.seed}
         </span>
-        <Button
-          className="pointer-events-auto px-2 py-1.5 text-[11px] font-bold"
-          variant="primary"
-          onClick={onResend}
-        >
-          Re-send
-        </Button>
+        <div className="pointer-events-auto flex gap-2">
+          {isActive && (
+            <Button
+              className="px-2 py-1.5 text-[11px] font-bold disabled:cursor-wait disabled:opacity-60"
+              disabled={isFailing}
+              variant="danger"
+              onClick={() => void failJob()}
+            >
+              {isFailing ? "Failing..." : "Fail"}
+            </Button>
+          )}
+          <Button
+            className="px-2 py-1.5 text-[11px] font-bold"
+            variant="primary"
+            onClick={onResend}
+          >
+            Re-send
+          </Button>
+        </div>
       </div>
     </article>
   )

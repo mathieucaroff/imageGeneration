@@ -34,6 +34,7 @@ export function createJobService() {
 
   async function process(job: Job) {
     const endpoint = await resolveReadyInstance(job.config.instanceId)
+    if (job.status !== "queued") return
     job.status = "running"
     job.startedAt = new Date().toISOString()
     await save()
@@ -54,6 +55,7 @@ export function createJobService() {
     const baseUrl = `http://${endpoint.host}:${endpoint.port}`
     const promptId = await queuePrompt(baseUrl, params, endpoint.token)
     const images = await waitForImages(baseUrl, promptId, undefined, endpoint.token)
+    if (jobs.get(job.id)?.status === "failed") return
     if (images.length !== 1)
       throw new Error(`Expected exactly one output image, received ${images.length}`)
     const source = await downloadImage(baseUrl, images[0]!, endpoint.token)
@@ -71,6 +73,7 @@ export function createJobService() {
       Buffer.from(JSON.stringify(job.config, null, 2)),
       "application/json",
     )
+    if (jobs.get(job.id)?.status === "failed") return
     job.status = "completed"
     job.finishedAt = new Date().toISOString()
     job.imageKey = name
@@ -88,9 +91,11 @@ export function createJobService() {
       try {
         await process(job)
       } catch (error) {
-        job.status = "failed"
-        job.finishedAt = new Date().toISOString()
-        job.error = errorMessage(error)
+        if (job.status !== "failed") {
+          job.status = "failed"
+          job.finishedAt = new Date().toISOString()
+          job.error = errorMessage(error)
+        }
         try {
           await recordActivity(job.config.instanceId)
         } catch {
@@ -113,6 +118,18 @@ export function createJobService() {
     subscribe(listener: JobListener) {
       listeners.add(listener)
       return () => listeners.delete(listener)
+    },
+    async fail(id: string) {
+      const job = jobs.get(id)
+      if (!job || (job.status !== "queued" && job.status !== "running")) return false
+      job.status = "failed"
+      job.finishedAt = new Date().toISOString()
+      job.error = "Cancelled by user"
+      const index = queue.indexOf(id)
+      if (index >= 0) queue.splice(index, 1)
+      await save()
+      notify(job)
+      return true
     },
     async create(config: JobConfig, maxQueued?: number) {
       if (

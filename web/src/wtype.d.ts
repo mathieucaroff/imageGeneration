@@ -47,6 +47,7 @@ type SavedGenerationConfig = {
   seed: number | ""
   randomizedSeed: boolean
   instanceId: number | ""
+  continuous: boolean
 }
 
 type CreateJobResult = { queued: true; job: Job } | { queued: false; reason: "queue-full" }

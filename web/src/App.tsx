@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type FormEvent } from "react"
 import { api } from "./api"
 import { Button } from "./components/Button"
-import { StatusDot } from "./components/StatusDot"
+import { StatusIndicator } from "./components/StatusIndicator"
 import { Fleet } from "./Fleet"
 import { Gallery } from "./Gallery"
 import { GenerationPanel } from "./GenerationPanel"
@@ -20,6 +20,7 @@ function loadGenerationConfig(): SavedGenerationConfig {
     seed: randomSeed(),
     randomizedSeed: false,
     instanceId: "",
+    continuous: false,
   }
   if (typeof window === "undefined") return defaults
   try {
@@ -36,6 +37,7 @@ function loadGenerationConfig(): SavedGenerationConfig {
       seed: randomizedSeed ? "" : Number.isFinite(saved.seed) ? saved.seed! : defaults.seed,
       randomizedSeed,
       instanceId: Number.isInteger(saved.instanceId) ? saved.instanceId! : defaults.instanceId,
+      continuous: typeof saved.continuous === "boolean" ? saved.continuous : defaults.continuous,
     }
   } catch {
     return defaults
@@ -58,9 +60,10 @@ export function App() {
   const [zoom, setZoom] = useState(260)
   const [error, setError] = useState("")
   const [busy, setBusy] = useState(false)
-  const [continuous, setContinuous] = useState(false)
+  const [continuous, setContinuous] = useState(savedGenerationConfig.continuous)
   const [continuousRetry, setContinuousRetry] = useState(0)
   const [lastPreview, setLastPreview] = useState<GalleryPreview>()
+  const [previewToOpen, setPreviewToOpen] = useState<GalleryPreview>()
   const [now, setNow] = useState(Date.now())
 
   async function refresh() {
@@ -106,12 +109,21 @@ export function App() {
     try {
       localStorage.setItem(
         generationConfigStorageKey,
-        JSON.stringify({ prompt, negative, width, height, seed, randomizedSeed, instanceId }),
+        JSON.stringify({
+          prompt,
+          negative,
+          width,
+          height,
+          seed,
+          randomizedSeed,
+          instanceId,
+          continuous,
+        }),
       )
     } catch {
       /* The form remains usable when browser storage is unavailable. */
     }
-  }, [prompt, negative, width, height, seed, randomizedSeed, instanceId])
+  }, [prompt, negative, width, height, seed, randomizedSeed, instanceId, continuous])
 
   async function createJob(config: Config, maxQueued?: number) {
     const result = await api<CreateJobResult>("/jobs", {
@@ -155,6 +167,16 @@ export function App() {
   function resend(job: Job) {
     void submit({ ...job.config, seed: randomSeed() })
   }
+  async function failJob(job: Job) {
+    setError("")
+    try {
+      await api(`/jobs/${job.id}/fail`, { method: "POST" })
+      await refresh()
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : "Could not fail generation")
+      throw reason
+    }
+  }
   async function instanceAction(path: string, init?: RequestInit) {
     setError("")
     try {
@@ -181,7 +203,7 @@ export function App() {
   }, [jobs])
   const continuousAttempting = useRef(false)
   const continuousRetryDelay = useRef(1000)
-  const continuousRetryTimer = useRef<number>()
+  const continuousRetryTimer = useRef<number | undefined>(undefined)
   useEffect(() => {
     return () => {
       if (continuousRetryTimer.current !== undefined) {
@@ -191,12 +213,9 @@ export function App() {
     }
   }, [continuous, instanceId])
   useEffect(() => {
-    if (!continuous) return
+    if (!continuous || !instanceId) return
     const selectedInstance = instances.find((instance) => instance.id === instanceId)
-    if (!selectedInstance?.ready) {
-      setContinuous(false)
-      return
-    }
+    if (!selectedInstance?.ready) return
     const instanceJobs = jobs.filter((job) => job.config.instanceId === instanceId)
     if (instanceJobs.some((job) => job.status === "queued") || continuousAttempting.current) return
     const newestFirst = (first: Job, second: Job) =>
@@ -268,7 +287,7 @@ export function App() {
             <output className="font-['DM_Mono'] text-[11px] text-[#cfdc6a]">{zoom}px</output>
           </label>
           <span className="hidden items-center gap-3 sm:flex">
-            <StatusDot ready />
+            <StatusIndicator ready={readyCount > 0} changing={false} />
             {readyCount} ready
           </span>
           <Button
@@ -283,7 +302,7 @@ export function App() {
           </Button>
         </div>
       </header>
-      <div className="grid min-h-[calc(100vh-68px)] md:grid-cols-[minmax(310px,350px)_1fr]">
+      <div className="grid min-h-[calc(100vh-68px)] md:grid-cols-[minmax(310px,450px)_1fr]">
         <GenerationPanel
           prompt={prompt}
           negative={negative}
@@ -292,8 +311,9 @@ export function App() {
           seed={seed}
           randomizedSeed={randomizedSeed}
           lastPreview={lastPreview}
+          onOpenPreview={setPreviewToOpen}
           continuous={continuous}
-          continuousDisabled={
+          generationDisabled={
             !instances.some((instance) => instance.id === instanceId && instance.ready)
           }
           busy={busy}
@@ -317,7 +337,7 @@ export function App() {
               now={now}
               instanceId={instanceId}
               onInstance={setInstanceId}
-              onAction={(path, init) => void instanceAction(path, init)}
+              onAction={instanceAction}
             />
           </div>
           <Gallery
@@ -327,8 +347,11 @@ export function App() {
             zoom={zoom}
             onRefresh={refresh}
             onResend={resend}
+            onFail={failJob}
             onSendConfig={(config) => void submit(config)}
             onHoverPreview={setLastPreview}
+            previewToOpen={previewToOpen}
+            onPreviewOpened={() => setPreviewToOpen(undefined)}
           />
         </div>
       </div>

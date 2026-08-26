@@ -5,14 +5,16 @@ export function GalleryNavigation({
   canGoNext,
   onPrevious,
   onNext,
+  className,
 }: {
   canGoPrevious: boolean
   canGoNext: boolean
   onPrevious: () => void
   onNext: () => void
+  className?: string
 }) {
   return (
-    <div className="absolute top-4 right-4 flex gap-2">
+    <div className={className ?? "absolute top-4 right-4 flex gap-2"}>
       <IconButton
         aria-label="Previous gallery item"
         disabled={!canGoPrevious}

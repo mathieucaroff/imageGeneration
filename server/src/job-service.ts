@@ -2,13 +2,12 @@ import { randomUUID } from "node:crypto"
 import sharp from "sharp"
 import { downloadImage, queuePrompt, waitForImages, type GenerationParams } from "../../lib/comfyui"
 import { recordActivity } from "../../lib/history"
-import { CHECKPOINT_FILE, withScoreTags } from "../../lib/pony"
+import { withScoreTags } from "../../lib/pony"
 import { errorMessage } from "./errors"
 import { resolveReadyInstance } from "./instance-service"
-import { imageName, publicUrl, upload } from "./storage"
+import { imageName, listCompletedJobs, publicUrl, upload } from "./storage"
 
 type JobListener = (job: Job & { position?: number }) => void
-const jobsPath = new URL("../../.jobs.json", import.meta.url)
 
 export function createJobService() {
   const jobs = new Map<string, Job>()
@@ -16,9 +15,6 @@ export function createJobService() {
   const listeners = new Set<JobListener>()
   let workerRunning = false
 
-  async function save() {
-    await Bun.write(jobsPath, JSON.stringify([...jobs.values()], null, 2))
-  }
   function position(id: string) {
     const index = queue.indexOf(id)
     return index < 0 ? undefined : index
@@ -37,7 +33,6 @@ export function createJobService() {
     if (job.status !== "queued") return
     job.status = "running"
     job.startedAt = new Date().toISOString()
-    await save()
     notify(job)
     await recordActivity(endpoint.instance.id)
     const params: GenerationParams = {
@@ -66,15 +61,16 @@ export function createJobService() {
       .toBuffer()
     const name = imageName()
     const thumbnailKey = name.replace(/\.webp$/, ".thumb.webp")
-    await upload(name, image, "image/webp")
-    await upload(thumbnailKey, thumbnail, "image/webp")
     await upload(
       name.replace(/\.webp$/, ".config"),
       Buffer.from(JSON.stringify(job.config, null, 2)),
       "application/json",
     )
+    await upload(thumbnailKey, thumbnail, "image/webp")
+    await upload(name, image, "image/webp")
     if (jobs.get(job.id)?.status === "failed") return
     job.status = "completed"
+    job.id = name.replace(/--pony\.webp$/, "")
     job.finishedAt = new Date().toISOString()
     job.imageKey = name
     job.imageUrl = publicUrl(name)
@@ -86,7 +82,8 @@ export function createJobService() {
     if (workerRunning) return
     workerRunning = true
     while (queue.length) {
-      const job = jobs.get(queue.shift()!)
+      const queuedId = queue.shift()!
+      const job = jobs.get(queuedId)
       if (!job) continue
       try {
         await process(job)
@@ -102,19 +99,22 @@ export function createJobService() {
           /* Preserve the job error. */
         }
       }
-      await save()
       notify(job)
+      if (job.status === "completed") jobs.delete(queuedId)
     }
     workerRunning = false
   }
 
   return {
-    async load() {
-      const file = Bun.file(jobsPath)
-      if (!(await file.exists())) return
-      for (const job of (await file.json()) as Job[]) jobs.set(job.id, job)
+    async list() {
+      const completedJobs = await listCompletedJobs()
+      const activeJobs = [...jobs.values()]
+        .filter((job) => job.status !== "completed")
+        .map(publicJob)
+      return [...activeJobs, ...completedJobs].toSorted(
+        (first, second) => Date.parse(second.createdAt) - Date.parse(first.createdAt),
+      )
     },
-    list: () => [...jobs.values()].reverse().map(publicJob),
     subscribe(listener: JobListener) {
       listeners.add(listener)
       return () => listeners.delete(listener)
@@ -127,7 +127,6 @@ export function createJobService() {
       job.error = "Cancelled by user"
       const index = queue.indexOf(id)
       if (index >= 0) queue.splice(index, 1)
-      await save()
       notify(job)
       return true
     },
@@ -149,7 +148,6 @@ export function createJobService() {
       jobs.set(job.id, job)
       queue.push(job.id)
       await recordActivity(config.instanceId)
-      await save()
       notify(job)
       void runWorker()
       return { queued: true as const, job: publicJob(job) }

@@ -14,11 +14,14 @@ import { createAuth } from "./auth"
 import { errorMessage } from "./errors"
 import { resolveReadyInstance } from "./instance-service"
 import type { JobService } from "./job-service"
+import { readLikedImageIds, writeLikedImageIds } from "./storage"
 
 const defaultNegative = "score_4, score_5, score_6, worst quality, low quality, blurry"
 
 export function registerRoutes(app: Hono, jobs: JobService) {
   const auth = createAuth()
+  let likedImageIds: Promise<Set<string>> | undefined
+  const likes = () => (likedImageIds ??= readLikedImageIds().then((ids) => new Set(ids)))
   app.post("/api/auth/login", async (c) =>
     auth.login(c, (await c.req.json<{ password?: string }>()).password),
   )
@@ -28,6 +31,8 @@ export function registerRoutes(app: Hono, jobs: JobService) {
   app.use("/api/instances/*", auth.requireAuth)
   app.use("/api/jobs", auth.requireAuth)
   app.use("/api/jobs/*", auth.requireAuth)
+  app.use("/api/likes", auth.requireAuth)
+  app.use("/api/likes/*", auth.requireAuth)
   app.use("/api/events", auth.requireAuth)
 
   app.get("/api/instances", async (c) =>
@@ -93,7 +98,20 @@ export function registerRoutes(app: Hono, jobs: JobService) {
     return c.json({ count: instances.length })
   })
 
-  app.get("/api/jobs", (c) => c.json(jobs.list()))
+  app.get("/api/jobs", async (c) => c.json(await jobs.list()))
+  app.get("/api/likes", async (c) => c.json({ ids: [...(await likes())] }))
+  app.put("/api/likes/:id", async (c) => {
+    const id = c.req.param("id")
+    if (!/^\d{4}-\d{2}-\d{2}T\d{2}-\d{2}-\d{2}Z$/.test(id))
+      return c.json({ error: "Invalid image ID" }, 400)
+    const { liked } = await c.req.json<{ liked?: boolean }>()
+    if (typeof liked !== "boolean") return c.json({ error: "liked is required" }, 400)
+    const ids = await likes()
+    if (liked) ids.add(id)
+    else ids.delete(id)
+    await writeLikedImageIds(ids)
+    return c.json({ ids: [...ids] })
+  })
   app.post("/api/jobs/:id/fail", async (c) => {
     if (!(await jobs.fail(c.req.param("id")))) return c.json({ error: "Job is not active" }, 409)
     return c.json({ failed: true })

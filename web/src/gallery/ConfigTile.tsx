@@ -44,10 +44,10 @@ export function ConfigTile({
         onFocus={onHover}
       >
         <div className="font-['DM_Mono'] text-[10px] font-bold tracking-[.14em]">CONFIG</div>
-        <div className="mt-4 line-clamp-6 text-xs leading-relaxed">
+        <div className="mt-4 flex h-[7.125rem] items-end overflow-hidden text-xs leading-relaxed">
           <DiffText value={tile.config.prompt} previous={tile.previous?.prompt} />
         </div>
-        <div className="mt-3 line-clamp-3 text-[10px] leading-relaxed opacity-75">
+        <div className="mt-3 flex h-[3rem] items-end overflow-hidden text-[10px] leading-relaxed opacity-75">
           <DiffText value={tile.config.negative_prompt} previous={tile.previous?.negative_prompt} />
         </div>
         <div className="mt-4 font-['DM_Mono'] text-[10px]">

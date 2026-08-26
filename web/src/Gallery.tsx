@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState, type CSSProperties } from "react"
+import { api } from "./api"
 import { Button } from "./components/Button"
 import { IconButton } from "./components/IconButton"
 import { Modal } from "./components/Modal"
@@ -8,21 +9,6 @@ import { ConfigViewer } from "./gallery/ConfigViewer"
 import { GalleryNavigation } from "./gallery/GalleryNavigation"
 import { JobTile } from "./gallery/JobTile"
 import { buildGalleryTiles } from "./gallery/model"
-
-const likedImageStorageKey = "pony-studio.liked-image-ids.v1"
-
-function loadLikedImageIds() {
-  try {
-    const saved = JSON.parse(localStorage.getItem(likedImageStorageKey) ?? "[]")
-    return new Set(
-      Array.isArray(saved)
-        ? saved.filter((value): value is string => typeof value === "string")
-        : [],
-    )
-  } catch {
-    return new Set<string>()
-  }
-}
 
 export function Gallery({
   jobs,
@@ -51,7 +37,7 @@ export function Gallery({
 }) {
   const [selectedTile, setSelectedTile] = useState<GalleryTile>()
   const [isRefreshing, setIsRefreshing] = useState(false)
-  const [likedImageIds, setLikedImageIds] = useState(loadLikedImageIds)
+  const [likedImageIds, setLikedImageIds] = useState<Set<string>>(new Set())
   const [likedOnly, setLikedOnly] = useState(false)
   const visibleJobs = useMemo(
     () => (likedOnly ? jobs.filter((job) => likedImageIds.has(job.id)) : jobs),
@@ -85,14 +71,24 @@ export function Gallery({
     if (targetIndex !== undefined) setSelectedTile(tiles[targetIndex])
   }
 
+  useEffect(() => {
+    let cancelled = false
+    void api<{ ids: string[] }>("/likes")
+      .then(({ ids }) => {
+        if (!cancelled) setLikedImageIds(new Set(ids))
+      })
+      .catch(() => {})
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
   function toggleLike(jobId: string) {
-    setLikedImageIds((current) => {
-      const next = new Set(current)
-      if (next.has(jobId)) next.delete(jobId)
-      else next.add(jobId)
-      localStorage.setItem(likedImageStorageKey, JSON.stringify([...next]))
-      return next
-    })
+    const liked = !likedImageIds.has(jobId)
+    void api<{ ids: string[] }>(`/likes/${jobId}`, {
+      method: "PUT",
+      body: JSON.stringify({ liked }),
+    }).then(({ ids }) => setLikedImageIds(new Set(ids)))
   }
 
   useEffect(() => {

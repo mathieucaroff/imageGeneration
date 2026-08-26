@@ -10,7 +10,6 @@ const jobs = createJobService()
 
 const auth = registerRoutes(app, jobs)
 await auth.load()
-await jobs.load()
 startInstanceSweep(idleMinutes)
 
 Bun.serve({ port, fetch: app.fetch })

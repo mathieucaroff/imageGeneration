@@ -1,7 +1,6 @@
-import { sweepInstances } from "../../lib/instance-sweep"
 import { COMFYUI_PORT } from "../../lib/pony"
 import { provisioningStatus } from "../../lib/provisioning"
-import { destroyInstance, findExposedPort, listInstances, type Instance } from "../../lib/vastai"
+import { findExposedPort, listInstances, type Instance } from "../../lib/vastai"
 
 export async function resolveReadyInstance(
   id: number,
@@ -19,14 +18,4 @@ export async function resolveReadyInstance(
     ...endpoint,
     ...(instance.jupyter_token ? { token: instance.jupyter_token } : {}),
   }
-}
-
-export function startInstanceSweep(idleMinutes: number): void {
-  const sweep = () =>
-    void sweepInstances({ idleMinutes, onIdle: (instance) => destroyInstance(instance.id) }).catch(
-      (error) =>
-        console.error(`Instance sweep failed: ${error instanceof Error ? error.message : error}`),
-    )
-  sweep()
-  setInterval(sweep, 30_000)
 }

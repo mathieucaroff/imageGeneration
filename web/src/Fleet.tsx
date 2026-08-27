@@ -41,7 +41,7 @@ export function Fleet({
   const [provisionCount, setProvisionCount] = useState(loadProvisionCount)
   const [provisioning, setProvisioning] = useState<{ instanceCount: number }>()
   const [changingInstances, setChangingInstances] = useState<
-    Record<number, { actualStatus: string; curState: string }>
+    Record<number, { actualStatus: string; curState: string; untilRemoved?: boolean }>
   >({})
 
   useEffect(() => {
@@ -52,8 +52,9 @@ export function Fleet({
           const instance = instances.find((candidate) => candidate.id === Number(id))
           return (
             instance &&
-            instance.actual_status === previous.actualStatus &&
-            instance.cur_state === previous.curState
+            (previous.untilRemoved ||
+              (instance.actual_status === previous.actualStatus &&
+                instance.cur_state === previous.curState))
           )
         }),
       ),
@@ -68,10 +69,19 @@ export function Fleet({
     }
   }, [provisionCount])
 
-  async function requestInstanceChange(instance: Instance, path: string, init: RequestInit) {
+  async function requestInstanceChange(
+    instance: Instance,
+    path: string,
+    init: RequestInit,
+    untilRemoved = false,
+  ) {
     setChangingInstances((current) => ({
       ...current,
-      [instance.id]: { actualStatus: instance.actual_status, curState: instance.cur_state },
+      [instance.id]: {
+        actualStatus: instance.actual_status,
+        curState: instance.cur_state,
+        untilRemoved,
+      },
     }))
     try {
       await onAction(path, init)
@@ -92,6 +102,7 @@ export function Fleet({
         {
           method: "DELETE",
         },
+        true,
       )
     else if (pendingAction.kind === "stop")
       void requestInstanceChange(

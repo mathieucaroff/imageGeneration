@@ -87,6 +87,13 @@ export async function provisioningStatus(instance: Instance): Promise<string> {
   } catch (e) {
     console.log("error", e)
     const errMessage = e instanceof Error ? e.message : String(e)
+    if (
+      errMessage.includes(" banner exchange: Connection to UNKNOWN port -1: Connection refused")
+    ) {
+      return "ssh-port-connection-refused"
+    } else if (errMessage.includes("Permission denied (publickey).")) {
+      return "ssh-wrong-key"
+    }
     return `ssh-failed(${errMessage})`
   }
 }

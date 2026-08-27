@@ -80,7 +80,7 @@ export async function searchRtx4090Offers(maxPricePerHour: number): Promise<Offe
       rentable: { eq: true },
       rented: { eq: false },
       dph_total: { lte: maxPricePerHour },
-      inet_down: { gte: 990 }, // 990 Mbps down minimum
+      inet_down: { gte: 1500 }, // 1.5 Gbps down minimum
       order: [["dph_total", "asc"]],
     }),
   })

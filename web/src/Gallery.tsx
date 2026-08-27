@@ -44,6 +44,7 @@ export function Gallery({
     [jobs, likedImageIds, likedOnly],
   )
   const tiles = useMemo(() => buildGalleryTiles(visibleJobs), [visibleJobs])
+  const chronologicalTiles = useMemo(() => tiles.toReversed(), [tiles])
   const selectedTileIndex = selectedTile
     ? tiles.findIndex((tile) => tile.id === selectedTile.id)
     : -1
@@ -136,12 +137,12 @@ export function Gallery({
           </Button>
         </div>
       </div>
-      {tiles.length > 0 && (
+      {chronologicalTiles.length > 0 && (
         <div
-          className="flex flex-wrap pt-7"
+          className="flex flex-row-reverse flex-wrap-reverse pt-7"
           style={{ "--tile-size": `${zoom}px` } as CSSProperties}
         >
-          {tiles.map((tile) => (
+          {chronologicalTiles.map((tile) => (
             <div key={tile.id} className="border-1 border-black">
               {tile.kind === "config" ? (
                 <ConfigTile

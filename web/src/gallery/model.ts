@@ -55,7 +55,7 @@ export function buildGalleryTiles(jobs: Job[]): GalleryTile[] {
       previousRun.push(job)
     else runs.push([job])
   }
-  return runs.flatMap((run, index) => {
+  const antechronologicalTiles = runs.flatMap((run, index) => {
     const config = run[0]!.config
     const olderConfig = runs[index + 1]?.[0]?.config
     const color = configColor(config)
@@ -64,4 +64,6 @@ export function buildGalleryTiles(jobs: Job[]): GalleryTile[] {
       ...run.map((job) => ({ kind: "job" as const, id: job.id, job, color })),
     ]
   })
+
+  return antechronologicalTiles
 }

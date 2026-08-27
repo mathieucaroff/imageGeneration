@@ -37,12 +37,12 @@ export function diffTags(current: string, previous?: string) {
         oldCounts.set(key, count - 1)
         return { text: tag, kind: "same" }
       }
-      return { text: tag, kind: "added" }
+      return { text: `+${tag}`, kind: "added" }
     })
     .concat(
       [...oldCounts.entries()].flatMap(([key, count]) =>
         Array.from({ length: count }, () => ({
-          text: `- ${oldTags.find((tag) => tag.toLowerCase() === key) ?? key}`,
+          text: `-${oldTags.find((tag) => tag.toLowerCase() === key) ?? key}`,
           kind: "removed",
         })),
       ),

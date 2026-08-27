@@ -6,6 +6,7 @@ import { Modal } from "./components/Modal"
 import { Switch } from "./components/Switch"
 import { ConfigTile } from "./gallery/ConfigTile"
 import { ConfigViewer } from "./gallery/ConfigViewer"
+import { CopyImageButton } from "./gallery/CopyImageButton"
 import { GalleryNavigation } from "./gallery/GalleryNavigation"
 import { JobTile } from "./gallery/JobTile"
 import { buildGalleryTiles } from "./gallery/model"
@@ -16,7 +17,6 @@ export function Gallery({
   now,
   zoom,
   onRefresh,
-  onResend,
   onFail,
   onSendConfig,
   onHoverPreview,
@@ -28,7 +28,6 @@ export function Gallery({
   now: number
   zoom: number
   onRefresh: () => Promise<void>
-  onResend: (job: Job) => void
   onFail: (job: Job) => Promise<void>
   onSendConfig: (config: Config) => void
   onHoverPreview: (preview: GalleryPreview) => void
@@ -161,7 +160,6 @@ export function Gallery({
                   liked={likedImageIds.has(tile.job.id)}
                   onHover={() => onHoverPreview({ kind: "image", job: tile.job })}
                   onOpen={() => setSelectedTile(tile)}
-                  onResend={() => onResend(tile.job)}
                   onFail={() => onFail(tile.job)}
                   onToggleLike={() => toggleLike(tile.job.id)}
                 />
@@ -216,6 +214,9 @@ export function Gallery({
               {likedImageIds.has(selectedTile.job.id) ? "♥" : "♡"}
             </span>
           </IconButton>
+          <div className="absolute top-24 right-4">
+            <CopyImageButton imageUrl={selectedTile.job.imageUrl} />
+          </div>
           {selectedTile.job.imageUrl ? (
             <img
               className="max-h-[calc(100vh-4rem)] max-w-full object-contain"

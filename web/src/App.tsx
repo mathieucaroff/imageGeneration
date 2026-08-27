@@ -164,9 +164,6 @@ export function App() {
       instanceId,
     })
   }
-  function resend(job: Job) {
-    void submit({ ...job.config, seed: randomSeed() })
-  }
   async function failJob(job: Job) {
     setError("")
     try {
@@ -346,9 +343,8 @@ export function App() {
             now={now}
             zoom={zoom}
             onRefresh={refresh}
-            onResend={resend}
             onFail={failJob}
-            onSendConfig={(config) => void submit(config)}
+            onSendConfig={(config) => void submit({ ...config, seed: randomSeed() })}
             onHoverPreview={setLastPreview}
             previewToOpen={previewToOpen}
             onPreviewOpened={() => setPreviewToOpen(undefined)}

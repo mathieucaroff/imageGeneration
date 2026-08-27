@@ -32,7 +32,7 @@ export function ConfigTile({
 }) {
   return (
     <article
-      className="group relative aspect-square w-[min(var(--tile-size),calc(100vw-2rem))] overflow-hidden border-[0.375rem] bg-[#080a08] sm:w-[min(var(--tile-size),calc(100vw-5rem))] sm:border-[1rem]"
+      className="group relative aspect-square w-[min(var(--tile-size),calc(100vw-2rem))] overflow-hidden border-[10%] bg-[#080a08] sm:w-[min(var(--tile-size),calc(100vw-5rem))]"
       style={{ borderColor: tile.color }}
     >
       <button

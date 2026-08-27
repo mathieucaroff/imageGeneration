@@ -1,6 +1,7 @@
 import { useState } from "react"
 import { Button } from "../components/Button"
 import { IconButton } from "../components/IconButton"
+import { CopyImageButton } from "./CopyImageButton"
 import { elapsedSeconds } from "../utils"
 
 export function JobTile({
@@ -10,7 +11,6 @@ export function JobTile({
   liked,
   onHover,
   onOpen,
-  onResend,
   onFail,
   onToggleLike,
 }: {
@@ -20,37 +20,13 @@ export function JobTile({
   liked: boolean
   onHover: () => void
   onOpen: () => void
-  onResend: () => void
   onFail: () => Promise<void>
   onToggleLike: () => void
 }) {
   const { job } = tile
   const imageUrl = zoom > 350 && job.imageUrl ? job.imageUrl : job.thumbnailUrl
-  const [isCopying, setIsCopying] = useState(false)
   const [isFailing, setIsFailing] = useState(false)
   const isActive = job.status === "queued" || job.status === "running"
-
-  async function copyImage() {
-    if (!job.imageUrl) return
-    setIsCopying(true)
-    try {
-      const response = await fetch(job.imageUrl)
-      if (!response.ok) throw new Error("Could not fetch image")
-      const image = await createImageBitmap(await response.blob())
-      try {
-        const canvas = new OffscreenCanvas(image.width, image.height)
-        const context = canvas.getContext("2d")
-        if (!context) throw new Error("Could not create image canvas")
-        context.drawImage(image, 0, 0)
-        const png = await canvas.convertToBlob({ type: "image/png" })
-        await navigator.clipboard.write([new ClipboardItem({ "image/png": png })])
-      } finally {
-        image.close()
-      }
-    } finally {
-      setIsCopying(false)
-    }
-  }
 
   async function failJob() {
     setIsFailing(true)
@@ -63,7 +39,7 @@ export function JobTile({
 
   return (
     <article
-      className="group relative aspect-square w-[min(var(--tile-size),calc(100vw-2rem))] overflow-hidden border-[0.375rem] bg-[#080a08] sm:w-[min(var(--tile-size),calc(100vw-5rem))] sm:border-[1rem]"
+      className="group relative aspect-square w-[min(var(--tile-size),calc(100vw-2rem))] overflow-hidden border-[length:min(1rem,calc(var(--tile-size)/25))] bg-[#080a08] sm:w-[min(var(--tile-size),calc(100vw-5rem))]"
       style={{ borderColor: tile.color }}
     >
       {job.status === "completed" && imageUrl ? (
@@ -112,16 +88,7 @@ export function JobTile({
         </span>
       </IconButton>
       <div className="absolute top-12 right-2 opacity-0 transition-opacity group-hover:opacity-100 focus-within:opacity-100">
-        <IconButton
-          aria-label="Copy full-size image"
-          disabled={!job.imageUrl || isCopying}
-          title="Copy full-size image"
-          onClick={() => void copyImage()}
-        >
-          <span aria-hidden="true" className="text-sm leading-none">
-            ⧉
-          </span>
-        </IconButton>
+        <CopyImageButton imageUrl={job.imageUrl} />
       </div>
       <div className="pointer-events-none absolute inset-x-0 bottom-0 flex justify-between bg-linear-to-t from-[#080a08dd] to-transparent p-2.5 opacity-0 transition-opacity group-hover:opacity-100">
         <span className="font-['DM_Mono'] text-[10px] text-[#d7d8ce]">
@@ -138,13 +105,6 @@ export function JobTile({
               {isFailing ? "Failing..." : "Fail"}
             </Button>
           )}
-          <Button
-            className="px-2 py-1.5 text-[11px] font-bold"
-            variant="primary"
-            onClick={onResend}
-          >
-            Re-send
-          </Button>
         </div>
       </div>
     </article>

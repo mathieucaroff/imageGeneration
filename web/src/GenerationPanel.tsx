@@ -2,6 +2,7 @@ import type { FormEvent, KeyboardEvent } from "react"
 import { Button } from "./components/Button"
 import { ErrorNotice } from "./components/ErrorNotice"
 import { FormField } from "./components/FormField"
+import { ResponsiveImage } from "./components/ResponsiveImage"
 import { Switch } from "./components/Switch"
 
 type Props = {
@@ -171,10 +172,13 @@ export function GenerationPanel(props: Props) {
             type="button"
             onClick={() => props.onOpenPreview(props.lastPreview!)}
           >
-            <img
-              className="aspect-square w-full object-cover"
-              src={props.lastPreview.job.thumbnailUrl ?? props.lastPreview.job.imageUrl}
+            <ResponsiveImage
               alt={props.lastPreview.job.config.prompt}
+              className="aspect-square w-full object-cover"
+              imageUrl={props.lastPreview.job.imageUrl}
+              sizes="390px"
+              thumbnailUrl={props.lastPreview.job.thumbnailUrl}
+              width={props.lastPreview.job.config.width}
             />
           </button>
         ) : props.lastPreview?.kind === "config" ? (

@@ -175,18 +175,26 @@ export function Fleet({
                 ▶
               </Button>
             )}
-            <Button
-              className="px-0.5 text-[#777d70] hover:text-[#dc9b8f]"
-              variant="quiet"
-              title={isStopped(instance) ? "Delete instance" : "Stop instance"}
-              onClick={() => {
-                setPendingAction(
-                  isStopped(instance) ? { kind: "delete", instance } : { kind: "stop", instance },
-                )
-              }}
-            >
-              ×
-            </Button>
+            {!isStopped(instance) && !changingInstances[instance.id]?.untilRemoved && (
+              <Button
+                className="px-0.5 text-[#777d70] hover:text-[#dc9b8f]"
+                variant="quiet"
+                title="Stop instance"
+                onClick={() => setPendingAction({ kind: "stop", instance })}
+              >
+                ■
+              </Button>
+            )}
+            {!changingInstances[instance.id]?.untilRemoved && (
+              <Button
+                className="px-0.5 text-[#777d70] hover:text-[#dc9b8f]"
+                variant="quiet"
+                title="Delete instance"
+                onClick={() => setPendingAction({ kind: "delete", instance })}
+              >
+                ×
+              </Button>
+            )}
           </div>
         ))}
         <div className="flex h-8 border border-[#42473d] bg-[#20231f] focus-within:border-[#cfdc6a]">

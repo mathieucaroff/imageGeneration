@@ -1,7 +1,9 @@
+import clsx from "clsx"
 import type { FormEvent, KeyboardEvent } from "react"
 import { Button } from "./components/Button"
 import { ErrorNotice } from "./components/ErrorNotice"
 import { FormField } from "./components/FormField"
+import { IconButton } from "./components/IconButton"
 import { ResponsiveImage } from "./components/ResponsiveImage"
 import { Switch } from "./components/Switch"
 
@@ -16,6 +18,7 @@ type Props = {
   onOpenPreview: (preview: GalleryPreview) => void
   continuous: boolean
   generationDisabled: boolean
+  retracted: boolean
   busy: boolean
   error: string
   onPrompt: (value: string) => void
@@ -25,6 +28,7 @@ type Props = {
   onSeed: (value: number | "") => void
   onRandomizedSeed: (value: boolean) => void
   onContinuous: (enabled: boolean) => void
+  onRetract: () => void
   onSubmit: (event: FormEvent) => void
 }
 
@@ -42,7 +46,19 @@ export function GenerationPanel(props: Props) {
     }
   }
   return (
-    <aside className="border-b border-[#30332e] px-5 py-8 md:sticky md:top-[68px] md:h-[calc(100vh-68px)] md:overflow-y-auto md:border-r md:border-b-0 md:px-8 lg:px-10 lg:py-14">
+    <aside
+      className={clsx(
+        "relative border-b border-[#30332e] px-5 py-8 md:sticky md:top-[68px] md:h-[calc(100vh-68px)] md:overflow-y-auto md:border-r md:border-b-0 md:px-8 lg:px-10 lg:py-14",
+        { "md:hidden": props.retracted },
+      )}
+    >
+      <IconButton
+        className="absolute top-4 right-4 hidden text-lg md:grid"
+        title="Retract generation panel"
+        onClick={props.onRetract}
+      >
+        ‹
+      </IconButton>
       <div className="font-['DM_Mono'] text-[10px] tracking-[.14em] text-[#8d9286]">
         GENERATION DESK
       </div>

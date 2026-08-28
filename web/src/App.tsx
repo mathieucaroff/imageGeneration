@@ -59,6 +59,7 @@ export function App() {
   const [randomizedSeed, setRandomizedSeed] = useState(savedGenerationConfig.randomizedSeed)
   const [instanceId, setInstanceId] = useState<number | "">(savedGenerationConfig.instanceId)
   const [zoom, setZoom] = useState(260)
+  const [generationPanelRetracted, setGenerationPanelRetracted] = useState(false)
   const [error, setError] = useState("")
   const [busy, setBusy] = useState(false)
   const [continuous, setContinuous] = useState(savedGenerationConfig.continuous)
@@ -316,7 +317,9 @@ export function App() {
           </Button>
         </div>
       </header>
-      <div className="grid min-h-[calc(100vh-68px)] md:grid-cols-[minmax(310px,450px)_1fr]">
+      <div
+        className={`grid min-h-[calc(100vh-68px)] ${generationPanelRetracted ? "md:grid-cols-[40px_1fr]" : "md:grid-cols-[minmax(310px,450px)_1fr]"}`}
+      >
         <GenerationPanel
           prompt={prompt}
           negative={negative}
@@ -330,6 +333,7 @@ export function App() {
           generationDisabled={
             !instances.some((instance) => instance.id === instanceId && instance.ready)
           }
+          retracted={generationPanelRetracted}
           busy={busy}
           error={error}
           onPrompt={setPrompt}
@@ -342,8 +346,20 @@ export function App() {
             setSeed(enabled ? "" : randomSeed())
           }}
           onContinuous={setContinuous}
+          onRetract={() => setGenerationPanelRetracted(true)}
           onSubmit={generate}
         />
+        {generationPanelRetracted && (
+          <aside className="hidden border-r border-[#30332e] bg-[#191c18] md:sticky md:top-[68px] md:flex md:h-[calc(100vh-68px)] md:justify-center md:pt-4">
+            <IconButton
+              className="text-lg"
+              title="Expand generation panel"
+              onClick={() => setGenerationPanelRetracted(false)}
+            >
+              ›
+            </IconButton>
+          </aside>
+        )}
         <div className="min-w-0">
           <div className="px-3 md:px-10">
             <Fleet

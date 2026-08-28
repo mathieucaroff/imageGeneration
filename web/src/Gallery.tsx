@@ -11,6 +11,9 @@ import { GalleryNavigation } from "./gallery/GalleryNavigation"
 import { JobTile } from "./gallery/JobTile"
 import { buildGalleryTiles } from "./gallery/model"
 
+type TileDisplay = "both" | "config" | "image"
+type ConfigPosition = "top" | "bottom"
+
 export function Gallery({
   jobs,
   jobsLoaded,
@@ -38,12 +41,39 @@ export function Gallery({
   const [isRefreshing, setIsRefreshing] = useState(false)
   const [likedImageIds, setLikedImageIds] = useState<Set<string>>(new Set())
   const [likedOnly, setLikedOnly] = useState(false)
-  const visibleJobs = useMemo(
-    () => (likedOnly ? jobs.filter((job) => likedImageIds.has(job.id)) : jobs),
-    [jobs, likedImageIds, likedOnly],
-  )
+  const [search, setSearch] = useState("")
+  const [tileDisplay, setTileDisplay] = useState<TileDisplay>("both")
+  const [configPosition, setConfigPosition] = useState<ConfigPosition>("top")
+  const visibleJobs = useMemo(() => {
+    const components = search.trim().split(/\s+/).filter(Boolean)
+    return jobs.filter(
+      (job) =>
+        (!likedOnly || likedImageIds.has(job.id)) &&
+        components.every((component) => job.config.prompt.includes(component)),
+    )
+  }, [jobs, likedImageIds, likedOnly, search])
   const tiles = useMemo(() => buildGalleryTiles(visibleJobs), [visibleJobs])
-  const chronologicalTiles = useMemo(() => tiles.toReversed(), [tiles])
+  const chronologicalTiles = useMemo(() => {
+    const positionedTiles =
+      configPosition === "top"
+        ? tiles
+        : tiles.flatMap((tile, index) => {
+            if (tile.kind !== "config") return []
+            const nextConfigIndex = tiles.findIndex(
+              (candidate, candidateIndex) => candidateIndex > index && candidate.kind === "config",
+            )
+            const images = tiles.slice(index + 1, nextConfigIndex < 0 ? undefined : nextConfigIndex)
+            return [...images, tile]
+          })
+    return positionedTiles
+      .filter(
+        (tile) =>
+          tileDisplay === "both" ||
+          tile.kind === tileDisplay ||
+          (tile.kind === "job" && tileDisplay === "image"),
+      )
+      .toReversed()
+  }, [configPosition, tileDisplay, tiles])
   const selectedTileIndex = selectedTile
     ? tiles.findIndex((tile) => tile.id === selectedTile.id)
     : -1
@@ -125,6 +155,33 @@ export function Gallery({
           </h2>
         </div>
         <div className="flex items-center gap-3">
+          <select
+            aria-label="Configuration tile position"
+            className="h-8 border border-[#42473d] bg-[#20231f] px-2 text-xs text-[#d7d8ce] outline-none focus:border-[#cfdc6a]"
+            value={configPosition}
+            onChange={(event) => setConfigPosition(event.target.value as ConfigPosition)}
+          >
+            <option value="top">Config at top</option>
+            <option value="bottom">Config at bottom</option>
+          </select>
+          <select
+            aria-label="Gallery content"
+            className="h-8 border border-[#42473d] bg-[#20231f] px-2 text-xs text-[#d7d8ce] outline-none focus:border-[#cfdc6a]"
+            value={tileDisplay}
+            onChange={(event) => setTileDisplay(event.target.value as TileDisplay)}
+          >
+            <option value="both">Both</option>
+            <option value="config">Config only</option>
+            <option value="image">Image only</option>
+          </select>
+          <input
+            aria-label="Search prompts"
+            className="h-8 w-36 border border-[#42473d] bg-[#20231f] px-2 text-xs text-[#d7d8ce] outline-none placeholder:text-[#777c70] focus:border-[#cfdc6a] sm:w-52"
+            placeholder="Search prompts"
+            type="search"
+            value={search}
+            onChange={(event) => setSearch(event.target.value)}
+          />
           <Switch checked={likedOnly} label="Liked only" onChange={setLikedOnly} />
           <Button
             className="px-2 py-1 text-lg disabled:cursor-wait disabled:opacity-60"

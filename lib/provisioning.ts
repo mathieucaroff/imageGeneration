@@ -1,5 +1,5 @@
 import { execFile } from "node:child_process"
-import { fileURLToPath } from "node:url"
+import { isAbsolute } from "node:path"
 import { promisify } from "node:util"
 import { CHECKPOINT_DIR, CHECKPOINT_FILE, CHECKPOINT_URL } from "./pony"
 import { findExposedPort, type Instance } from "./vastai"
@@ -47,9 +47,12 @@ function provisioningState(log: string): string {
   return "empty"
 }
 
-// Resolved from this file so status checks work regardless of the process
-// working directory (repo root for scripts, server/ for the API server).
-const SSH_KEY_PATH = fileURLToPath(new URL("../.ssh/vastai_ed25519", import.meta.url))
+// Both script/ and server/ processes run one directory below the repo root.
+const configuredSshKeyPath = process.env.VASTAI_PRIVATE_SSH_KEY_PATH
+const SSH_KEY_PATH =
+  configuredSshKeyPath && isAbsolute(configuredSshKeyPath)
+    ? configuredSshKeyPath
+    : `../${configuredSshKeyPath || ".ssh/vastai_ed25519"}`
 
 export async function provisioningStatus(instance: Instance): Promise<string> {
   if (instance.cur_state === "stopped") return "poweredoff"
@@ -93,8 +96,12 @@ export async function provisioningStatus(instance: Instance): Promise<string> {
       )
     ) {
       return "ssh-port-connection-refused"
+    } else if (errMessage.includes("Connection refused")) {
+      return "ssh-other-connection-refused"
     } else if (errMessage.includes("Permission denied (publickey).")) {
       return "ssh-wrong-key"
+    } else if (errMessage.includes("Connection closed by")) {
+      return "ssh-connection-closed"
     }
     return `ssh-failed(${errMessage})`
   }

@@ -4,6 +4,8 @@
  */
 import { listInstances } from "../lib/vastai"
 
+const sshKeyPath = process.env.VASTAI_PRIVATE_SSH_KEY_PATH || ".ssh/vastai_ed25519"
+
 function parseArgs(argv: string[]): { instanceId: number | undefined; sshArgs: string[] } {
   const sshArgs: string[] = []
   let instanceId: number | undefined
@@ -48,7 +50,7 @@ async function main() {
       "-o",
       "StrictHostKeyChecking=no",
       "-i",
-      ".ssh/vastai_ed25519",
+      sshKeyPath,
       "-p",
       String(instance.ssh_port),
       `root@${instance.ssh_host}`,

@@ -1,5 +1,5 @@
 import type { Hono } from "hono"
-import { buildOnstartScript, isComfyUiReady, provisioningStatus } from "../../lib/provisioning"
+import { buildOnstartScript, provisioningStatus } from "../../lib/provisioning"
 import { stopOrDestroyInstance } from "../../lib/instance-lifecycle"
 import { CHECKPOINT_FILE, COMFYUI_PORT } from "../../lib/pony"
 import { MAX_PRICE_PER_HOUR } from "../../lib/pricing"
@@ -41,9 +41,7 @@ export function registerRoutes(app: Hono, jobs: JobService) {
         (await listInstances()).map(async (instance) => {
           const provisioning = await provisioningStatus(instance)
           const ready =
-            instance.actual_status === "running" &&
-            ["ready", "cached"].includes(provisioning) &&
-            (await isComfyUiReady(instance))
+            instance.actual_status === "running" && ["ready", "cached"].includes(provisioning)
           return {
             ...instance,
             provisioning,

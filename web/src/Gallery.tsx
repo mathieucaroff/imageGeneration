@@ -3,6 +3,7 @@ import { api } from "./api"
 import { Button } from "./components/Button"
 import { IconButton } from "./components/IconButton"
 import { Modal } from "./components/Modal"
+import { Select } from "./components/Select"
 import { Switch } from "./components/Switch"
 import { ConfigTile } from "./gallery/ConfigTile"
 import { ConfigViewer } from "./gallery/ConfigViewer"
@@ -155,7 +156,7 @@ export function Gallery({
           </h2>
         </div>
         <div className="flex items-center gap-3">
-          <select
+          <Select
             aria-label="Configuration tile position"
             className="h-8 border border-[#42473d] bg-[#20231f] px-2 text-xs text-[#d7d8ce] outline-none focus:border-[#cfdc6a]"
             value={configPosition}
@@ -163,8 +164,8 @@ export function Gallery({
           >
             <option value="top">Config at top</option>
             <option value="bottom">Config at bottom</option>
-          </select>
-          <select
+          </Select>
+          <Select
             aria-label="Gallery content"
             className="h-8 border border-[#42473d] bg-[#20231f] px-2 text-xs text-[#d7d8ce] outline-none focus:border-[#cfdc6a]"
             value={tileDisplay}
@@ -173,7 +174,7 @@ export function Gallery({
             <option value="both">Both</option>
             <option value="config">Config only</option>
             <option value="image">Image only</option>
-          </select>
+          </Select>
           <input
             aria-label="Search prompts"
             className="h-8 w-36 border border-[#42473d] bg-[#20231f] px-2 text-xs text-[#d7d8ce] outline-none placeholder:text-[#777c70] focus:border-[#cfdc6a] sm:w-52"

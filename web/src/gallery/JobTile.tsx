@@ -39,7 +39,7 @@ export function JobTile({
 
   return (
     <article
-      className="group relative aspect-square w-[min(var(--tile-size),calc(100vw-2rem))] overflow-hidden border-[length:min(1rem,calc(var(--tile-size)/25))] bg-[#080a08] sm:w-[min(var(--tile-size),calc(100vw-5rem))]"
+      className="group relative aspect-square w-[min(var(--tile-size),calc(100vw-33rem))] overflow-hidden border-[length:min(1rem,calc(var(--tile-size)/25))] bg-[#080a08]"
       style={{ borderColor: tile.color }}
     >
       {job.status === "completed" && imageUrl ? (

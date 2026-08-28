@@ -54,6 +54,9 @@ const SSH_KEY_PATH =
     ? configuredSshKeyPath
     : `../${configuredSshKeyPath || ".ssh/vastai_ed25519"}`
 
+const portConnectionRefusedRegex =
+  /banner\s+exchange:\s+Connection\s+to\s+UNKNOWN\s+port\s+-1:\s+Connection\s+refused/
+
 export async function provisioningStatus(instance: Instance): Promise<string> {
   if (instance.cur_state === "stopped") return "poweredoff"
   if (instance.actual_status !== "running") return `pending(${instance.actual_status})`
@@ -90,11 +93,7 @@ export async function provisioningStatus(instance: Instance): Promise<string> {
   } catch (e) {
     console.log("error", e)
     const errMessage = e instanceof Error ? e.message : String(e)
-    if (
-      /banner\s+exchange:\s+Connection\s+to\s+UNKNOWN\s+port\s+-1:\s+Connection\s+refused/.test(
-        errMessage,
-      )
-    ) {
+    if (portConnectionRefusedRegex.test(errMessage)) {
       return "ssh-port-connection-refused"
     } else if (errMessage.includes("Connection refused")) {
       return "ssh-other-connection-refused"
@@ -102,6 +101,10 @@ export async function provisioningStatus(instance: Instance): Promise<string> {
       return "ssh-wrong-key"
     } else if (errMessage.includes("Connection closed by")) {
       return "ssh-connection-closed"
+    } else if (errMessage.includes("Connection reset by")) {
+      return "ssh-connection-reset"
+    } else if (errMessage.includes("Connection timed out")) {
+      return "ssh-connection-timed-out"
     }
     return `ssh-failed(${errMessage})`
   }

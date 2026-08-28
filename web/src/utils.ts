@@ -14,7 +14,7 @@ export function elapsedSeconds(
 }
 
 export function shortInstanceId(id: number) {
-  return String(id).slice(-5)
+  return String(id).slice(-4)
 }
 
 export function diffTags(current: string, previous?: string) {

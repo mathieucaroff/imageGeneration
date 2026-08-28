@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type FormEvent } from "react"
 import { api } from "./api"
 import { Button } from "./components/Button"
+import { IconButton } from "./components/IconButton"
 import { StatusIndicator } from "./components/StatusIndicator"
 import { Fleet } from "./Fleet"
 import { Gallery } from "./Gallery"
@@ -270,17 +271,33 @@ export function App() {
           <span>pony studio</span>
         </div>
         <div className="flex min-w-0 items-center gap-3 text-sm">
-          <label className="flex min-w-0 items-center gap-2 text-[11px] whitespace-nowrap text-[#aeb1a5]">
+          <label className="mx-2 flex min-w-0 items-center gap-2 text-[11px] whitespace-nowrap text-[#aeb1a5]">
             <span className="hidden lg:inline">Tile size</span>
             <input
               aria-label="Tile size"
-              className="w-20 accent-[#cfdc6a] sm:w-32 lg:w-[240px]"
+              className="w-30 accent-[#cfdc6a] sm:w-52 lg:w-120 xl:w-190"
               type="range"
               min="30"
               max="900"
               value={zoom}
               onChange={(event) => setZoom(Number(event.target.value))}
             />
+            <span className="mx-1 grid gap-px">
+              <IconButton
+                className="size-5 border-[#42473d] text-xs"
+                title="Increase tile size"
+                onClick={() => console.log("Increase tile size")}
+              >
+                +
+              </IconButton>
+              <IconButton
+                className="size-5 border-[#42473d] text-xs"
+                title="Decrease tile size"
+                onClick={() => console.log("Decrease tile size")}
+              >
+                -
+              </IconButton>
+            </span>
             <output className="font-['DM_Mono'] text-[11px] text-[#cfdc6a]">{zoom}px</output>
           </label>
           <span className="hidden items-center gap-3 sm:flex">

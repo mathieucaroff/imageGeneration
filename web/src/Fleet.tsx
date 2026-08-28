@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react"
 import { Button } from "./components/Button"
 import { Modal } from "./components/Modal"
+import { Select } from "./components/Select"
 import { elapsedSeconds, shortInstanceId } from "./utils"
 import { StatusIndicator } from "./components/StatusIndicator"
 
@@ -135,7 +136,7 @@ export function Fleet({
         <div className="mr-1 w-full font-['DM_Mono'] text-[10px] tracking-[.14em] text-[#8d9286] sm:w-auto">
           VAST.AI FLEET
         </div>
-        <select
+        <Select
           aria-label="Ready instance"
           className="h-8 max-w-48 border border-[#42473d] bg-[#20231f] px-2 font-['DM_Mono'] text-[11px] text-[#d7d8ce] outline-none focus:border-[#cfdc6a]"
           value={instanceId}
@@ -146,10 +147,10 @@ export function Fleet({
             .filter((instance) => instance.ready)
             .map((instance) => (
               <option value={instance.id} key={instance.id}>
-                #{shortInstanceId(instance.id)} {instance.gpu_name}
+                #{shortInstanceId(instance.id)} (${instance.dph_total.toFixed(2)}/h)
               </option>
             ))}
-        </select>
+        </Select>
         {instances.map((instance) => (
           <div
             className="flex items-center gap-2 bg-[#20231f] px-2 py-1.5 font-['DM_Mono'] text-[11px] text-[#bfc2b5]"

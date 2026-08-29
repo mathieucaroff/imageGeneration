@@ -24,7 +24,7 @@ type Job = {
   startedAt?: string
   finishedAt?: string
   error?: string
-  imageUrl?: string
-  thumbnailUrl?: string
+  imageUrls?: string[]
+  thumbnailUrls?: string[]
   imageKey?: string
 }

@@ -181,7 +181,7 @@ export function GenerationPanel(props: Props) {
           LAST IMAGE VIEW
         </div>
         {props.lastPreview?.kind === "image" &&
-        (props.lastPreview.job.thumbnailUrl || props.lastPreview.job.imageUrl) ? (
+        (props.lastPreview.job.thumbnailUrls?.length || props.lastPreview.job.imageUrls?.length) ? (
           <button
             className="mt-3 block w-full cursor-zoom-in outline-offset-4 outline-[#d4df6f]"
             title="View full image"
@@ -191,9 +191,9 @@ export function GenerationPanel(props: Props) {
             <ResponsiveImage
               alt={props.lastPreview.job.config.prompt}
               className="aspect-square w-full object-cover"
-              imageUrl={props.lastPreview.job.imageUrl}
+              imageUrls={props.lastPreview.job.imageUrls}
               sizes="390px"
-              thumbnailUrl={props.lastPreview.job.thumbnailUrl}
+              thumbnailUrls={props.lastPreview.job.thumbnailUrls}
               width={props.lastPreview.job.config.width}
             />
           </button>

@@ -189,7 +189,9 @@ export function App() {
   const lastCompletedImageId = useRef<string | undefined>(undefined)
   useEffect(() => {
     const lastCompletedImage = jobs
-      .filter((job) => job.status === "completed" && (job.thumbnailUrl || job.imageUrl))
+      .filter(
+        (job) => job.status === "completed" && (job.thumbnailUrls?.length || job.imageUrls?.length),
+      )
       .sort(
         (first, second) =>
           Date.parse(second.finishedAt ?? second.createdAt) -

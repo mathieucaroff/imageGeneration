@@ -17,10 +17,16 @@ function client() {
   return new S3Client({ endpoint, region: "auto", credentials: { accessKeyId, secretAccessKey } })
 }
 
-export function publicUrl(key: string): string {
-  const baseUrl = process.env.S3_PUBLIC_URL
-  if (!baseUrl) throw new Error("S3_PUBLIC_URL is not configured")
-  return `${baseUrl.replace(/\/$/, "")}/${key}`
+export function publicUrlList(key: string): string[] {
+  const baseUrlList = process.env.S3_PUBLIC_URL_LIST
+  if (!baseUrlList) throw new Error("S3_PUBLIC_URL_LIST is not configured")
+  const urls = baseUrlList
+    .split(",")
+    .map((url) => url.trim().replace(/\/$/, ""))
+    .filter(Boolean)
+    .map((url) => `${url}/${key}`)
+  if (!urls.length) throw new Error("S3_PUBLIC_URL_LIST must contain at least one URL")
+  return urls
 }
 
 export async function upload(key: string, body: Uint8Array, contentType: string): Promise<void> {
@@ -110,8 +116,8 @@ export async function listCompletedJobs(): Promise<Job[]> {
         startedAt: timestamp,
         finishedAt: timestamp,
         imageKey,
-        imageUrl: publicUrl(imageKey),
-        thumbnailUrl: publicUrl(thumbnailKey),
+        imageUrls: publicUrlList(imageKey),
+        thumbnailUrls: publicUrlList(thumbnailKey),
       }
     }),
   )

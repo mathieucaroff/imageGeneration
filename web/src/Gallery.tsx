@@ -3,6 +3,7 @@ import { api } from "./api"
 import { Button } from "./components/Button"
 import { IconButton } from "./components/IconButton"
 import { Modal } from "./components/Modal"
+import { ResponsiveImage } from "./components/ResponsiveImage"
 import { Select } from "./components/Select"
 import { Switch } from "./components/Switch"
 import { ConfigTile } from "./gallery/ConfigTile"
@@ -273,13 +274,15 @@ export function Gallery({
             </span>
           </IconButton>
           <div className="absolute top-24 right-4">
-            <CopyImageButton imageUrl={selectedTile.job.imageUrl} />
+            <CopyImageButton imageUrls={selectedTile.job.imageUrls} />
           </div>
-          {selectedTile.job.imageUrl ? (
-            <img
+          {selectedTile.job.imageUrls?.length ? (
+            <ResponsiveImage
               className="max-h-[calc(100vh-4rem)] max-w-full object-contain"
-              src={selectedTile.job.imageUrl}
               alt={selectedTile.job.config.prompt}
+              imageUrls={selectedTile.job.imageUrls}
+              sizes="100vw"
+              width={selectedTile.job.config.width}
             />
           ) : (
             <div className="grid min-h-48 min-w-72 place-items-center bg-[#20231f] px-16 text-sm text-[#aeb1a5]">

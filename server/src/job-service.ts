@@ -5,7 +5,7 @@ import { recordActivity } from "../../lib/history"
 import { withScoreTags } from "../../lib/pony"
 import { errorMessage } from "./errors"
 import { resolveReadyInstance } from "./instance-service"
-import { imageName, listCompletedJobs, publicUrl, upload } from "./storage"
+import { imageName, listCompletedJobs, publicUrlList, upload } from "./storage"
 
 type JobListener = (job: Job & { position?: number }) => void
 
@@ -73,8 +73,8 @@ export function createJobService() {
     job.id = name.replace(/--pony\.webp$/, "")
     job.finishedAt = new Date().toISOString()
     job.imageKey = name
-    job.imageUrl = publicUrl(name)
-    job.thumbnailUrl = publicUrl(thumbnailKey)
+    job.imageUrls = publicUrlList(name)
+    job.thumbnailUrls = publicUrlList(thumbnailKey)
     await recordActivity(endpoint.instance.id)
   }
 

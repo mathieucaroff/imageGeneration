@@ -12,8 +12,8 @@ type Job = {
   config: Config
   status: "queued" | "running" | "completed" | "failed"
   position?: number
-  imageUrl?: string
-  thumbnailUrl?: string
+  imageUrls?: string[]
+  thumbnailUrls?: string[]
   error?: string
   createdAt: string
   startedAt?: string

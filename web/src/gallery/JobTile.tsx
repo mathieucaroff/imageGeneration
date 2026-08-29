@@ -1,6 +1,7 @@
 import { useState } from "react"
 import { Button } from "../components/Button"
 import { IconButton } from "../components/IconButton"
+import { ResponsiveImage } from "../components/ResponsiveImage"
 import { CopyImageButton } from "./CopyImageButton"
 import { elapsedSeconds } from "../utils"
 
@@ -24,7 +25,7 @@ export function JobTile({
   onToggleLike: () => void
 }) {
   const { job } = tile
-  const imageUrl = zoom > 350 && job.imageUrl ? job.imageUrl : job.thumbnailUrl
+  const imageUrls = zoom > 350 ? job.imageUrls : job.thumbnailUrls
   const [isFailing, setIsFailing] = useState(false)
   const isActive = job.status === "queued" || job.status === "running"
 
@@ -42,7 +43,7 @@ export function JobTile({
       className="group relative aspect-square w-[min(var(--tile-size),calc(100vw-33rem))] overflow-hidden border-[length:min(1rem,calc(var(--tile-size)/25))] bg-[#080a08]"
       style={{ borderColor: tile.color }}
     >
-      {job.status === "completed" && imageUrl ? (
+      {job.status === "completed" && imageUrls?.length ? (
         <button
           className="block size-full cursor-zoom-in"
           title="View full image"
@@ -51,7 +52,14 @@ export function JobTile({
           onMouseEnter={onHover}
           onFocus={onHover}
         >
-          <img className="size-full object-contain" src={imageUrl} alt={job.config.prompt} />
+          <ResponsiveImage
+            alt={job.config.prompt}
+            className="size-full object-contain"
+            imageUrls={job.imageUrls}
+            sizes="var(--tile-size)"
+            thumbnailUrls={job.thumbnailUrls}
+            width={job.config.width}
+          />
         </button>
       ) : (
         <div className="grid size-full place-content-center justify-items-center gap-2 p-5 text-center font-['DM_Mono'] text-xs text-[#d7d8ce]">
@@ -88,7 +96,7 @@ export function JobTile({
         </span>
       </IconButton>
       <div className="absolute top-12 right-2 opacity-0 transition-opacity group-hover:opacity-100 focus-within:opacity-100">
-        <CopyImageButton imageUrl={job.imageUrl} />
+        <CopyImageButton imageUrls={job.imageUrls} />
       </div>
       <div className="pointer-events-none absolute inset-x-0 bottom-0 flex justify-between bg-linear-to-t from-[#080a08dd] to-transparent p-2.5 opacity-0 transition-opacity group-hover:opacity-100">
         <span className="font-['DM_Mono'] text-[10px] text-[#d7d8ce]">

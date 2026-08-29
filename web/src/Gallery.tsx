@@ -27,6 +27,7 @@ export function Gallery({
   onHoverPreview,
   previewToOpen,
   onPreviewOpened,
+  readOnly = false,
   galleryRef,
 }: {
   jobs: Job[]
@@ -34,11 +35,12 @@ export function Gallery({
   now: number
   zoom: number
   onRefresh: () => Promise<void>
-  onFail: (job: Job) => Promise<void>
-  onSendConfig: (config: Config) => void
+  onFail?: (job: Job) => Promise<void>
+  onSendConfig?: (config: Config) => void
   onHoverPreview: (preview: GalleryPreview) => void
   previewToOpen?: GalleryPreview
   onPreviewOpened: () => void
+  readOnly?: boolean
   galleryRef: React.RefObject<HTMLDivElement | null>
 }) {
   const [selectedTile, setSelectedTile] = useState<GalleryTile>()
@@ -118,6 +120,7 @@ export function Gallery({
   }, [])
 
   function toggleLike(jobId: string) {
+    if (readOnly) return
     const liked = !likedImageIds.has(jobId)
     void api<{ ids: string[] }>(`/likes/${jobId}`, {
       method: "PUT",
@@ -186,7 +189,7 @@ export function Gallery({
             value={search}
             onChange={(event) => setSearch(event.target.value)}
           />
-          <Switch checked={likedOnly} label="Liked only" onChange={setLikedOnly} />
+          {!readOnly && <Switch checked={likedOnly} label="Liked only" onChange={setLikedOnly} />}
           <Button
             className="px-2 py-1 text-lg disabled:cursor-wait disabled:opacity-60"
             disabled={isRefreshing}
@@ -212,7 +215,7 @@ export function Gallery({
                     onHoverPreview({ kind: "config", config: tile.config, color: tile.color })
                   }
                   onOpen={() => setSelectedTile(tile)}
-                  onSend={() => onSendConfig(tile.config)}
+                  onSend={onSendConfig ? () => onSendConfig(tile.config) : undefined}
                 />
               ) : (
                 <ImageTile
@@ -222,8 +225,8 @@ export function Gallery({
                   liked={likedImageIds.has(tile.job.id)}
                   onHover={() => onHoverPreview({ kind: "image", job: tile.job })}
                   onOpen={() => setSelectedTile(tile)}
-                  onFail={() => onFail(tile.job)}
-                  onToggleLike={() => toggleLike(tile.job.id)}
+                  onFail={onFail ? () => onFail(tile.job) : undefined}
+                  onToggleLike={readOnly ? undefined : () => toggleLike(tile.job.id)}
                 />
               )}
             </div>
@@ -263,19 +266,21 @@ export function Gallery({
             onPrevious={() => selectAdjacentTile(-1)}
             onNext={() => selectAdjacentTile(1)}
           />
-          <IconButton
-            className={`absolute top-14 right-4 ${
-              likedImageIds.has(selectedTile.job.id)
-                ? "border-[#f48aab] bg-[#f48aab] text-[#20241d] hover:border-[#ffb0c5] hover:text-[#20241d]"
-                : ""
-            }`}
-            title={likedImageIds.has(selectedTile.job.id) ? "Unlike image" : "Like image"}
-            onClick={() => toggleLike(selectedTile.job.id)}
-          >
-            <span aria-hidden="true" className="text-lg leading-none">
-              {likedImageIds.has(selectedTile.job.id) ? "♥" : "♡"}
-            </span>
-          </IconButton>
+          {!readOnly && (
+            <IconButton
+              className={`absolute top-14 right-4 ${
+                likedImageIds.has(selectedTile.job.id)
+                  ? "border-[#f48aab] bg-[#f48aab] text-[#20241d] hover:border-[#ffb0c5] hover:text-[#20241d]"
+                  : ""
+              }`}
+              title={likedImageIds.has(selectedTile.job.id) ? "Unlike image" : "Like image"}
+              onClick={() => toggleLike(selectedTile.job.id)}
+            >
+              <span aria-hidden="true" className="text-lg leading-none">
+                {likedImageIds.has(selectedTile.job.id) ? "♥" : "♡"}
+              </span>
+            </IconButton>
+          )}
           <div className="absolute top-24 right-4">
             <CopyImageButton imageUrls={selectedTile.job.imageUrls} />
           </div>

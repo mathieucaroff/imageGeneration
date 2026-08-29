@@ -22,11 +22,19 @@ export function registerRoutes(app: Hono, jobs: JobService) {
   const auth = createAuth()
   let likedImageIds: Promise<Set<string>> | undefined
   const likes = () => (likedImageIds ??= readLikedImageIds().then((ids) => new Set(ids)))
-  app.post("/api/auth/login", async (c) =>
-    auth.login(c, (await c.req.json<{ password?: string }>()).password),
-  )
+  app.post("/api/auth/login", async (c) => {
+    const { username, password } = await c.req.json<{ username?: string; password?: string }>()
+    return auth.login(c, username, password)
+  })
   app.post("/api/auth/logout", auth.logout)
-  app.get("/api/auth/session", (c) => c.json({ authenticated: auth.isAuthenticated(c) }))
+  app.get("/api/auth/session", (c) => {
+    const session = auth.session(c)
+    return c.json({
+      authenticated: Boolean(session),
+      username: session?.username,
+      readOnly: session?.readOnly,
+    })
+  })
   app.use("/api/instances", auth.requireAuth)
   app.use("/api/instances/*", auth.requireAuth)
   app.use("/api/jobs", auth.requireAuth)
@@ -34,6 +42,12 @@ export function registerRoutes(app: Hono, jobs: JobService) {
   app.use("/api/likes", auth.requireAuth)
   app.use("/api/likes/*", auth.requireAuth)
   app.use("/api/events", auth.requireAuth)
+  app.post("/api/instances/*", auth.requireWriteAuth)
+  app.delete("/api/instances/*", auth.requireWriteAuth)
+  app.delete("/api/instances", auth.requireWriteAuth)
+  app.post("/api/jobs/*", auth.requireWriteAuth)
+  app.post("/api/jobs", auth.requireWriteAuth)
+  app.put("/api/likes/*", auth.requireWriteAuth)
 
   app.get("/api/instances", async (c) =>
     c.json(

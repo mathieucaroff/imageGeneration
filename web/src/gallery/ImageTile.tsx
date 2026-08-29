@@ -22,8 +22,8 @@ export function ImageTile({
   liked: boolean
   onHover: () => void
   onOpen: () => void
-  onFail: () => Promise<void>
-  onToggleLike: () => void
+  onFail?: () => Promise<void>
+  onToggleLike?: () => void
 }) {
   const { job } = tile
   const imageUrls = zoom > 350 ? job.imageUrls : job.thumbnailUrls
@@ -33,7 +33,7 @@ export function ImageTile({
   async function failJob() {
     setIsFailing(true)
     try {
-      await onFail()
+      await onFail?.()
     } finally {
       setIsFailing(false)
     }
@@ -80,16 +80,18 @@ export function ImageTile({
       onHover={onHover}
       onOpen={onOpen}
     >
-      <IconButton
-        aria-label={liked ? "Unlike image" : "Like image"}
-        className={`absolute top-2 right-2 ${liked ? "border-[#f48aab] bg-[#f48aab] text-[#20241d] hover:border-[#ffb0c5] hover:text-[#20241d]" : "opacity-0 group-hover:opacity-100 focus:opacity-100"}`}
-        title={liked ? "Unlike image" : "Like image"}
-        onClick={onToggleLike}
-      >
-        <span aria-hidden="true" className="text-lg leading-none">
-          {liked ? "♥" : "♡"}
-        </span>
-      </IconButton>
+      {onToggleLike && (
+        <IconButton
+          aria-label={liked ? "Unlike image" : "Like image"}
+          className={`absolute top-2 right-2 ${liked ? "border-[#f48aab] bg-[#f48aab] text-[#20241d] hover:border-[#ffb0c5] hover:text-[#20241d]" : "opacity-0 group-hover:opacity-100 focus:opacity-100"}`}
+          title={liked ? "Unlike image" : "Like image"}
+          onClick={onToggleLike}
+        >
+          <span aria-hidden="true" className="text-lg leading-none">
+            {liked ? "♥" : "♡"}
+          </span>
+        </IconButton>
+      )}
       <div className="absolute top-12 right-2 opacity-0 transition-opacity group-hover:opacity-100 focus-within:opacity-100">
         <CopyImageButton imageUrls={job.imageUrls} />
       </div>
@@ -98,7 +100,7 @@ export function ImageTile({
           {job.status} · seed {job.config.seed}
         </span>
         <div className="pointer-events-auto flex gap-2">
-          {isActive && (
+          {isActive && onFail && (
             <Button
               className="px-2 py-1.5 text-[11px] font-bold disabled:cursor-wait disabled:opacity-60"
               disabled={isFailing}

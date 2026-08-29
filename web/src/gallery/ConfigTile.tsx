@@ -29,7 +29,7 @@ export function ConfigTile({
   tile: Extract<GalleryTile, { kind: "config" }>
   onHover: () => void
   onOpen: () => void
-  onSend: () => void
+  onSend?: () => void
 }) {
   return (
     <GalleryTileFrame
@@ -69,11 +69,13 @@ export function ConfigTile({
       onHover={onHover}
       onOpen={onOpen}
     >
-      <div className="absolute right-2 bottom-2 opacity-0 transition-opacity group-focus-within:opacity-100 group-hover:opacity-100">
-        <Button className="px-2 py-1.5 text-[11px] font-bold" variant="primary" onClick={onSend}>
-          Send
-        </Button>
-      </div>
+      {onSend && (
+        <div className="absolute right-2 bottom-2 opacity-0 transition-opacity group-focus-within:opacity-100 group-hover:opacity-100">
+          <Button className="px-2 py-1.5 text-[11px] font-bold" variant="primary" onClick={onSend}>
+            Send
+          </Button>
+        </div>
+      )}
     </GalleryTileFrame>
   )
 }

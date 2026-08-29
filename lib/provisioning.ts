@@ -1,5 +1,6 @@
 import { execFile } from "node:child_process"
-import { isAbsolute } from "node:path"
+import { resolve } from "node:path"
+import { fileURLToPath } from "node:url"
 import { promisify } from "node:util"
 import { CHECKPOINT_DIR, CHECKPOINT_FILE, CHECKPOINT_URL } from "./pony"
 import { findExposedPort, type Instance } from "./vastai"
@@ -47,12 +48,11 @@ function provisioningState(log: string): string {
   return "empty"
 }
 
-// Both script/ and server/ processes run one directory below the repo root.
-const configuredSshKeyPath = process.env.VASTAI_PRIVATE_SSH_KEY_PATH
-const SSH_KEY_PATH =
-  configuredSshKeyPath && isAbsolute(configuredSshKeyPath)
-    ? configuredSshKeyPath
-    : `../${configuredSshKeyPath || ".ssh/vastai_ed25519"}`
+const repositoryRoot = fileURLToPath(new URL("../", import.meta.url))
+const sshKeyPath = resolve(
+  repositoryRoot,
+  process.env.VASTAI_PRIVATE_SSH_KEY_PATH || ".ssh/vastai_ed25519",
+)
 
 const portConnectionRefusedRegex =
   /banner\s+exchange:\s+Connection\s+to\s+UNKNOWN\s+port\s+-1:\s+Connection\s+refused/
@@ -73,7 +73,7 @@ export async function provisioningStatus(instance: Instance): Promise<string> {
         "-o",
         "StrictHostKeyChecking=no",
         "-i",
-        SSH_KEY_PATH,
+        sshKeyPath,
         "-p",
         String(instance.ssh_port),
         `root@${instance.ssh_host}`,

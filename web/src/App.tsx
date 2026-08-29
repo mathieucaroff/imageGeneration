@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, type FormEvent } from "react"
 import { api } from "./api"
+import { AppReadOnly } from "./AppReadOnly"
 import { Button } from "./components/Button"
 import { IconButton } from "./components/IconButton"
 import { StatusIndicator } from "./components/StatusIndicator"
@@ -48,6 +49,8 @@ function loadGenerationConfig(): SavedGenerationConfig {
 export function App() {
   const [savedGenerationConfig] = useState(loadGenerationConfig)
   const [authenticated, setAuthenticated] = useState<boolean | null>(null)
+  const [username, setUsername] = useState("")
+  const [readOnly, setReadOnly] = useState(false)
   const [instances, setInstances] = useState<Instance[]>([])
   const [jobs, setJobs] = useState<Job[]>([])
   const [jobsLoaded, setJobsLoaded] = useState(false)
@@ -83,9 +86,11 @@ export function App() {
     }
   }
   useEffect(() => {
-    api<{ authenticated: boolean }>("/auth/session")
+    api<{ authenticated: boolean; username?: string; readOnly?: boolean }>("/auth/session")
       .then((data) => {
         setAuthenticated(data.authenticated)
+        setUsername(data.username ?? "")
+        setReadOnly(data.readOnly === true)
         if (data.authenticated) void refresh()
       })
       .catch(() => setAuthenticated(false))
@@ -268,10 +273,22 @@ export function App() {
   if (!authenticated)
     return (
       <Login
-        onLogin={() => {
-          setAuthenticated(true)
+        onLogin={(session) => {
+          setAuthenticated(session.authenticated)
+          setUsername(session.username)
+          setReadOnly(session.readOnly)
           void refresh()
         }}
+      />
+    )
+
+  if (readOnly)
+    return (
+      <AppReadOnly
+        username={username}
+        onSignOut={() =>
+          void api("/auth/logout", { method: "POST" }).then(() => setAuthenticated(false))
+        }
       />
     )
 

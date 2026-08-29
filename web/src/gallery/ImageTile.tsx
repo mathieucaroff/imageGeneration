@@ -2,10 +2,11 @@ import { useState } from "react"
 import { Button } from "../components/Button"
 import { IconButton } from "../components/IconButton"
 import { ResponsiveImage } from "../components/ResponsiveImage"
-import { CopyImageButton } from "./CopyImageButton"
 import { elapsedSeconds } from "../utils"
+import { CopyImageButton } from "./CopyImageButton"
+import { GalleryTileFrame } from "./GalleryTileFrame"
 
-export function JobTile({
+export function ImageTile({
   tile,
   now,
   zoom,
@@ -39,19 +40,12 @@ export function JobTile({
   }
 
   return (
-    <article
-      className="group relative aspect-square w-[min(var(--tile-size),calc(100vw-33rem))] overflow-hidden border-[length:min(1rem,calc(var(--tile-size)/25))] bg-[#080a08]"
-      style={{ borderColor: tile.color }}
-    >
-      {job.status === "completed" && imageUrls?.length ? (
-        <button
-          className="block size-full cursor-zoom-in"
-          title="View full image"
-          type="button"
-          onClick={onOpen}
-          onMouseEnter={onHover}
-          onFocus={onHover}
-        >
+    <GalleryTileFrame
+      buttonClassName="block size-full cursor-zoom-in"
+      className="border-[length:min(1rem,calc(var(--tile-size)/25))] bg-[#080a08]"
+      color={tile.color}
+      content={
+        job.status === "completed" && imageUrls?.length ? (
           <ResponsiveImage
             alt={job.config.prompt}
             className="size-full object-contain"
@@ -60,34 +54,35 @@ export function JobTile({
             thumbnailUrls={job.thumbnailUrls}
             width={job.config.width}
           />
-        </button>
-      ) : (
-        <div className="grid size-full place-content-center justify-items-center gap-2 p-5 text-center font-['DM_Mono'] text-xs text-[#d7d8ce]">
-          {job.status === "queued" ? (
-            <>
-              <span>Queued #{(job.position ?? 0) + 1}</span>
-              <span className="text-[10px]">{elapsedSeconds(job.createdAt, now)}</span>
-            </>
-          ) : (
-            <>
-              <span>Rendering</span>
-              <span className="text-[10px]">
-                Queue: {elapsedSeconds(job.createdAt, job.startedAt!)}
-              </span>
-              <span className="text-[10px]">
-                Rendering: {elapsedSeconds(job.startedAt, job.finishedAt ?? now)}
-              </span>
-            </>
-          )}
-        </div>
-      )}
+        ) : (
+          <div className="grid size-full place-content-center justify-items-center gap-2 p-5 text-center font-['DM_Mono'] text-xs text-[#d7d8ce]">
+            {job.status === "queued" ? (
+              <>
+                <span>Queued #{(job.position ?? 0) + 1}</span>
+                <span className="text-[10px]">{elapsedSeconds(job.createdAt, now)}</span>
+              </>
+            ) : (
+              <>
+                <span>Rendering</span>
+                <span className="text-[10px]">
+                  Queue: {elapsedSeconds(job.createdAt, job.startedAt!)}
+                </span>
+                <span className="text-[10px]">
+                  Rendering: {elapsedSeconds(job.startedAt, job.finishedAt ?? now)}
+                </span>
+              </>
+            )}
+          </div>
+        )
+      }
+      style={{}}
+      title="View full image"
+      onHover={onHover}
+      onOpen={onOpen}
+    >
       <IconButton
         aria-label={liked ? "Unlike image" : "Like image"}
-        className={`absolute top-2 right-2 ${
-          liked
-            ? "border-[#f48aab] bg-[#f48aab] text-[#20241d] hover:border-[#ffb0c5] hover:text-[#20241d]"
-            : "opacity-0 group-hover:opacity-100 focus:opacity-100"
-        }`}
+        className={`absolute top-2 right-2 ${liked ? "border-[#f48aab] bg-[#f48aab] text-[#20241d] hover:border-[#ffb0c5] hover:text-[#20241d]" : "opacity-0 group-hover:opacity-100 focus:opacity-100"}`}
         title={liked ? "Unlike image" : "Like image"}
         onClick={onToggleLike}
       >
@@ -115,6 +110,6 @@ export function JobTile({
           )}
         </div>
       </div>
-    </article>
+    </GalleryTileFrame>
   )
 }

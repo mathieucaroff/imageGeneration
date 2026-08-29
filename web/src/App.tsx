@@ -7,7 +7,7 @@ import { Fleet } from "./Fleet"
 import { Gallery } from "./Gallery"
 import { GenerationPanel } from "./GenerationPanel"
 import { Login } from "./Login"
-import { randomSeed } from "./utils"
+import { clamp, randomSeed } from "./utils"
 
 const defaultNegative = "score_4, score_5, score_6, worst quality, low quality, blurry"
 const generationConfigStorageKey = "pony-studio.generation-config.v1"
@@ -67,6 +67,7 @@ export function App() {
   const [lastPreview, setLastPreview] = useState<GalleryPreview>()
   const [previewToOpen, setPreviewToOpen] = useState<GalleryPreview>()
   const [now, setNow] = useState(Date.now())
+  const galleryRef = useRef<HTMLDivElement>(null)
 
   async function refresh() {
     const [nextInstances, nextJobs] = await Promise.all([
@@ -247,6 +248,17 @@ export function App() {
         }, delay)
       })
   }, [continuous, continuousRetry, instanceId, instances, jobs])
+
+  function adjustZoom(direction: -1 | 1) {
+    setZoom((currentZoom) => {
+      if (!galleryRef.current) return clamp(currentZoom + direction * 10, 30, 900)
+      const width = galleryRef.current.clientWidth
+      const floorCount = Math.floor(width / currentZoom)
+      const floorZoom = Math.floor(width / (floorCount - direction) - 0.01)
+      return clamp(floorZoom, 30, 900)
+    })
+  }
+
   if (authenticated === null)
     return (
       <div className="grid min-h-screen place-content-center bg-[#151714] font-['DM_Mono'] text-xs text-[#cfdc6a]">
@@ -289,14 +301,14 @@ export function App() {
               <IconButton
                 className="size-5 border-[#42473d] text-xs"
                 title="Increase tile size"
-                onClick={() => console.log("Increase tile size")}
+                onClick={() => adjustZoom(1)}
               >
                 +
               </IconButton>
               <IconButton
                 className="size-5 border-[#42473d] text-xs"
                 title="Decrease tile size"
-                onClick={() => console.log("Decrease tile size")}
+                onClick={() => adjustZoom(-1)}
               >
                 -
               </IconButton>
@@ -383,6 +395,7 @@ export function App() {
             onHoverPreview={setLastPreview}
             previewToOpen={previewToOpen}
             onPreviewOpened={() => setPreviewToOpen(undefined)}
+            galleryRef={galleryRef}
           />
         </div>
       </div>

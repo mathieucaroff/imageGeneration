@@ -10,7 +10,7 @@ import { ConfigTile } from "./gallery/ConfigTile"
 import { ConfigViewer } from "./gallery/ConfigViewer"
 import { CopyImageButton } from "./gallery/CopyImageButton"
 import { GalleryNavigation } from "./gallery/GalleryNavigation"
-import { JobTile } from "./gallery/JobTile"
+import { ImageTile } from "./gallery/ImageTile"
 import { buildGalleryTiles } from "./gallery/model"
 
 type TileDisplay = "both" | "config" | "image"
@@ -27,6 +27,7 @@ export function Gallery({
   onHoverPreview,
   previewToOpen,
   onPreviewOpened,
+  galleryRef,
 }: {
   jobs: Job[]
   jobsLoaded: boolean
@@ -38,6 +39,7 @@ export function Gallery({
   onHoverPreview: (preview: GalleryPreview) => void
   previewToOpen?: GalleryPreview
   onPreviewOpened: () => void
+  galleryRef: React.RefObject<HTMLDivElement | null>
 }) {
   const [selectedTile, setSelectedTile] = useState<GalleryTile>()
   const [isRefreshing, setIsRefreshing] = useState(false)
@@ -199,9 +201,10 @@ export function Gallery({
         <div
           className="flex flex-row-reverse flex-wrap-reverse pt-7"
           style={{ "--tile-size": `${zoom}px` } as CSSProperties}
+          ref={galleryRef}
         >
           {chronologicalTiles.map((tile) => (
-            <div key={tile.id} className="border-1 border-black">
+            <div key={tile.id}>
               {tile.kind === "config" ? (
                 <ConfigTile
                   tile={tile}
@@ -212,7 +215,7 @@ export function Gallery({
                   onSend={() => onSendConfig(tile.config)}
                 />
               ) : (
-                <JobTile
+                <ImageTile
                   tile={tile}
                   now={now}
                   zoom={zoom}

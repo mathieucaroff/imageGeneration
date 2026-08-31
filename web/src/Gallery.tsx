@@ -148,7 +148,7 @@ export function Gallery({
   }
 
   return (
-    <main className="min-w-0 px-3 py-7 sm:px-6 md:px-10 md:py-11">
+    <main className="min-w-0 px-3 py-7 sm:px-6 md:px-8 md:py-10">
       <div className="mb-6 flex items-end justify-between gap-5">
         <div>
           <div className="font-['DM_Mono'] text-[10px] tracking-[.14em] text-[#8d9286]">

@@ -48,29 +48,36 @@ function loadGenerationConfig(): SavedGenerationConfig {
 
 export function App() {
   const [savedGenerationConfig] = useState(loadGenerationConfig)
+  const [continuous, setContinuous] = useState(savedGenerationConfig.continuous)
+  const [height, setHeight] = useState(savedGenerationConfig.height)
+  const [instanceId, setInstanceId] = useState<number | "">(savedGenerationConfig.instanceId)
+  const [negative, setNegative] = useState(savedGenerationConfig.negative)
+  const [prompt, setPrompt] = useState(savedGenerationConfig.prompt)
+  const [randomizedSeed, setRandomizedSeed] = useState(savedGenerationConfig.randomizedSeed)
+  const [seed, setSeed] = useState<number | "">(savedGenerationConfig.seed)
+  const [width, setWidth] = useState(savedGenerationConfig.width)
   const [authenticated, setAuthenticated] = useState<boolean | null>(null)
-  const [username, setUsername] = useState("")
-  const [readOnly, setReadOnly] = useState(false)
+  const [busy, setBusy] = useState(false)
+  const [continuousRetry, setContinuousRetry] = useState(0)
+  const [error, setError] = useState("")
+  const [generationPanelRetracted, setGenerationPanelRetracted] = useState(false)
   const [instances, setInstances] = useState<Instance[]>([])
   const [jobs, setJobs] = useState<Job[]>([])
   const [jobsLoaded, setJobsLoaded] = useState(false)
-  const [prompt, setPrompt] = useState(savedGenerationConfig.prompt)
-  const [negative, setNegative] = useState(savedGenerationConfig.negative)
-  const [width, setWidth] = useState(savedGenerationConfig.width)
-  const [height, setHeight] = useState(savedGenerationConfig.height)
-  const [seed, setSeed] = useState<number | "">(savedGenerationConfig.seed)
-  const [randomizedSeed, setRandomizedSeed] = useState(savedGenerationConfig.randomizedSeed)
-  const [instanceId, setInstanceId] = useState<number | "">(savedGenerationConfig.instanceId)
-  const [zoom, setZoom] = useState(260)
-  const [generationPanelRetracted, setGenerationPanelRetracted] = useState(false)
-  const [error, setError] = useState("")
-  const [busy, setBusy] = useState(false)
-  const [continuous, setContinuous] = useState(savedGenerationConfig.continuous)
-  const [continuousRetry, setContinuousRetry] = useState(0)
   const [lastPreview, setLastPreview] = useState<GalleryPreview>()
-  const [previewToOpen, setPreviewToOpen] = useState<GalleryPreview>()
   const [now, setNow] = useState(Date.now())
+  const [previewToOpen, setPreviewToOpen] = useState<GalleryPreview>()
+  const [readOnly, setReadOnly] = useState(false)
+  const [username, setUsername] = useState("")
+  const [zoom, setZoom] = useState(260)
   const galleryRef = useRef<HTMLDivElement>(null)
+
+  if (instanceId === "") {
+    const { id } = instances.find((instance) => instance.ready) ?? {}
+    if (id) {
+      setInstanceId(id)
+    }
+  }
 
   async function refresh() {
     const [nextInstances, nextJobs] = await Promise.all([
@@ -229,8 +236,8 @@ export function App() {
       Date.parse(second.startedAt ?? second.createdAt) -
       Date.parse(first.startedAt ?? first.createdAt)
     const source =
-      instanceJobs.filter((job) => job.status === "running").toSorted(newestFirst)[0] ??
-      instanceJobs.filter((job) => job.status !== "failed").toSorted(newestFirst)[0]
+      jobs.filter((job) => job.status === "running").toSorted(newestFirst)[0] ??
+      jobs.filter((job) => job.status === "completed").toSorted(newestFirst)[0]
     if (!source) return
     continuousAttempting.current = true
     void createJob({ ...source.config, seed: randomSeed(), instanceId }, 1)
@@ -392,7 +399,7 @@ export function App() {
           </aside>
         )}
         <div className="min-w-0">
-          <div className="px-3 md:px-10">
+          <div className="px-3 md:px-8">
             <Fleet
               instances={instances}
               now={now}

@@ -5,22 +5,42 @@ import { deleteCookie, getCookie, setCookie } from "hono/cookie"
 const sessionCookie = "pony_session"
 const sessionLifetimeSeconds = 60 * 60 * 24 * 30
 const sessionsPath = new URL("../../.sessions.json", import.meta.url)
-const credentialsPath = new URL("../../.userCredentials.json", import.meta.url)
+const credentialsPath = new URL("../../.user.json", import.meta.url)
 
-type Session = { expiresAt: number; username: string; readOnly: boolean }
+type Access = "read" | "write" | "admin" | "superadmin"
+type Credential = { username: string; password: string; access: Access }
+type Session = { expiresAt: number; username: string; access: Access }
 type StoredSession = Session & { token: string }
+type CredentialInput = Omit<Credential, "access"> & { access?: Access }
+type LegacyStoredSession = {
+  token?: unknown
+  expiresAt?: unknown
+  username?: unknown
+  access?: unknown
+  readOnly?: boolean
+}
 
-async function readCredentials(): Promise<Record<string, string>> {
+function isAccess(value: unknown): value is Access {
+  return value === "read" || value === "write" || value === "admin" || value === "superadmin"
+}
+
+async function readCredentials(): Promise<Credential[]> {
   const file = Bun.file(credentialsPath)
   if (!(await file.exists())) throw new Error("User credentials are not configured")
   const value: unknown = await file.json()
-  if (!value || typeof value !== "object" || Array.isArray(value))
-    throw new Error("User credentials must be a JSON object")
-  return Object.fromEntries(
-    Object.entries(value).filter(
-      (entry): entry is [string, string] => typeof entry[1] === "string",
-    ),
+  if (!Array.isArray(value)) throw new Error("User credentials must be a JSON array")
+  if (
+    !value.every(
+      (credential): credential is CredentialInput =>
+        credential !== null &&
+        typeof credential === "object" &&
+        typeof credential.username === "string" &&
+        typeof credential.password === "string" &&
+        (credential.access === undefined || isAccess(credential.access)),
+    )
   )
+    throw new Error("Each user must have username, password, and an optional valid access level")
+  return value.map((credential) => ({ ...credential, access: credential.access ?? "read" }))
 }
 
 export function createAuth() {
@@ -44,26 +64,33 @@ export function createAuth() {
   async function requireWriteAuth(c: Context, next: Next) {
     const activeSession = session(c)
     if (!activeSession) return c.json({ error: "Authentication required" }, 401)
-    if (activeSession.readOnly) return c.json({ error: "Read-only access" }, 403)
+    if (activeSession.access === "read") return c.json({ error: "Read-only access" }, 403)
+    return next()
+  }
+  async function requireSuperadminAuth(c: Context, next: Next) {
+    const activeSession = session(c)
+    if (!activeSession) return c.json({ error: "Authentication required" }, 401)
+    if (activeSession.access !== "superadmin")
+      return c.json({ error: "Superadmin access required" }, 403)
     return next()
   }
   async function login(c: Context, username: string | undefined, password: string | undefined) {
     const resolvedUsername = username ?? ""
-    const readOnly = resolvedUsername !== ""
-    let credentials: Record<string, string>
+    let credentials: Credential[]
     try {
       credentials = await readCredentials()
     } catch (error) {
       console.error("Could not read user credentials:", error)
       return c.json({ error: "Authentication is unavailable" }, 503)
     }
-    if (!Object.hasOwn(credentials, resolvedUsername) || password !== credentials[resolvedUsername])
+    const credential = credentials.find((candidate) => candidate.username === resolvedUsername)
+    if (!credential || password !== credential.password)
       return c.json({ error: "Invalid password" }, 401)
     const token = randomBytes(32).toString("hex")
     sessions.set(token, {
       expiresAt: Date.now() + sessionLifetimeSeconds * 1000,
       username: resolvedUsername,
-      readOnly,
+      access: credential.access,
     })
     await save()
     setCookie(c, sessionCookie, token, {
@@ -73,7 +100,12 @@ export function createAuth() {
       path: "/",
       maxAge: sessionLifetimeSeconds,
     })
-    return c.json({ authenticated: true, username: resolvedUsername, readOnly })
+    return c.json({
+      authenticated: true,
+      username: resolvedUsername,
+      access: credential.access,
+      readOnly: credential.access === "read",
+    })
   }
   async function logout(c: Context) {
     const token = getCookie(c, sessionCookie)
@@ -91,18 +123,22 @@ export function createAuth() {
     async load() {
       const file = Bun.file(sessionsPath)
       if (!(await file.exists())) return
-      for (const session of (await file.json()) as Array<Partial<StoredSession>>) {
+      for (const session of (await file.json()) as LegacyStoredSession[]) {
         const expiresAt = session.expiresAt
         if (
           typeof session.token === "string" &&
+          typeof expiresAt === "number" &&
           Number.isFinite(expiresAt) &&
-          expiresAt !== undefined &&
           expiresAt > Date.now()
         )
           sessions.set(session.token, {
             expiresAt,
             username: typeof session.username === "string" ? session.username : "",
-            readOnly: session.readOnly === true,
+            access: isAccess(session.access)
+              ? session.access
+              : session.access === "" || session.readOnly === true
+                ? "read"
+                : "admin",
           })
       }
       await save()
@@ -113,5 +149,6 @@ export function createAuth() {
     isAuthenticated,
     session,
     requireWriteAuth,
+    requireSuperadminAuth,
   }
 }

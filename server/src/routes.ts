@@ -32,7 +32,7 @@ export function registerRoutes(app: Hono, jobs: JobService) {
     return c.json({
       authenticated: Boolean(session),
       username: session?.username,
-      readOnly: session?.readOnly,
+      readOnly: session?.access === "read",
     })
   })
   app.use("/api/instances", auth.requireAuth)
@@ -48,6 +48,7 @@ export function registerRoutes(app: Hono, jobs: JobService) {
   app.post("/api/jobs/*", auth.requireWriteAuth)
   app.post("/api/jobs", auth.requireWriteAuth)
   app.put("/api/likes/*", auth.requireWriteAuth)
+  app.post("/api/server/upgrade", auth.requireSuperadminAuth)
 
   app.get("/api/instances", async (c) =>
     c.json(
@@ -108,6 +109,12 @@ export function registerRoutes(app: Hono, jobs: JobService) {
     const instances = await listInstances()
     await Promise.all(instances.map((instance) => destroyInstance(instance.id)))
     return c.json({ count: instances.length })
+  })
+  app.post("/api/server/upgrade", (c) => {
+    const upgradeScript = process.env.UPGRADE_SCRIPT
+    if (!upgradeScript) return c.json({ error: "UPGRADE_SCRIPT is not configured" }, 503)
+    Bun.spawn({ cmd: [upgradeScript], stderr: "ignore", stdout: "ignore" })
+    return c.json({ started: true }, 202)
   })
 
   app.get("/api/jobs", async (c) => c.json(await jobs.list()))

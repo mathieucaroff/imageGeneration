@@ -49,7 +49,7 @@ export function Gallery({
   const [likedOnly, setLikedOnly] = useState(false)
   const [search, setSearch] = useState("")
   const [tileDisplay, setTileDisplay] = useState<TileDisplay>("both")
-  const [configPosition, setConfigPosition] = useState<ConfigPosition>("top")
+  const [configPosition, setConfigPosition] = useState<ConfigPosition>("bottom")
   const visibleJobs = useMemo(() => {
     const components = search.trim().split(/\s+/).filter(Boolean)
     return jobs.filter(

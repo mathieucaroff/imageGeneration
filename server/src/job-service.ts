@@ -156,3 +156,38 @@ export function createJobService() {
 }
 
 export type JobService = ReturnType<typeof createJobService>
+
+export type JobsPage = {
+  jobs: Job[]
+  page: number
+  pageSize?: number | undefined
+  cursor?: string | undefined
+  nextCursor?: string | undefined
+  total: number
+}
+
+export function paginateJobs(
+  jobs: Job[],
+  {
+    page,
+    pageSize,
+    cursor,
+  }: { page: number; pageSize?: number | undefined; cursor?: string | undefined },
+): JobsPage | undefined {
+  const cursorIndex = cursor === undefined ? 0 : jobs.findIndex((job) => job.id === cursor)
+  if (cursorIndex < 0) return undefined
+  const start = cursorIndex + (page - 1) * (pageSize ?? jobs.length)
+  const pageJobs = pageSize === undefined ? jobs.slice(start) : jobs.slice(start, start + pageSize)
+  const nextCursor =
+    pageSize !== undefined && start + pageSize < jobs.length
+      ? jobs[start + pageSize]?.id
+      : undefined
+  return {
+    jobs: pageJobs,
+    page,
+    pageSize,
+    cursor,
+    nextCursor,
+    total: jobs.length - cursorIndex,
+  }
+}

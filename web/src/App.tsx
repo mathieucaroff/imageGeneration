@@ -80,13 +80,12 @@ export function App() {
   }
 
   async function refresh() {
-    const [nextInstances, nextJobs] = await Promise.all([
-      api<Instance[]>("/instances"),
-      api<Job[]>("/jobs"),
-    ])
+    api<Job[]>("/jobs").then((nextJobs) => {
+      setJobs(nextJobs)
+      setJobsLoaded(true)
+    })
+    const nextInstances = await api<Instance[]>("/instances")
     setInstances(nextInstances)
-    setJobs(nextJobs)
-    setJobsLoaded(true)
     if (instanceId === "") {
       const ready = nextInstances.find((instance) => instance.ready)
       if (ready) setInstanceId(ready.id)
@@ -106,7 +105,7 @@ export function App() {
     if (!authenticated) return
     const events = new EventSource("/api/events")
     events.addEventListener("job", () => void refresh())
-    const timer = window.setInterval(() => void refresh(), 10000)
+    const timer = window.setInterval(() => void refresh(), 30_000)
     return () => {
       events.close()
       window.clearInterval(timer)
@@ -205,11 +204,11 @@ export function App() {
       .filter(
         (job) => job.status === "completed" && (job.thumbnailUrls?.length || job.imageUrls?.length),
       )
-      .sort(
-        (first, second) =>
-          Date.parse(second.finishedAt ?? second.createdAt) -
-          Date.parse(first.finishedAt ?? first.createdAt),
-      )[0]
+      .sort((first, second) => {
+        if (first.finishedAt && second.finishedAt)
+          return Date.parse(second.finishedAt) - Date.parse(first.finishedAt)
+        return Date.parse(second.createdAt) - Date.parse(first.createdAt)
+      })[0]
     if (lastCompletedImage && lastCompletedImage.id !== lastCompletedImageId.current) {
       lastCompletedImageId.current = lastCompletedImage.id
       setLastPreview({ kind: "image", job: lastCompletedImage })
@@ -261,15 +260,16 @@ export function App() {
       })
   }, [continuous, continuousRetry, instanceId, instances, jobs])
 
-  function adjustZoom(direction: -1 | 1) {
+  function adjustZoom(direction: -1 | 0 | 1) {
     setZoom((currentZoom) => {
       if (!galleryRef.current) return clamp(currentZoom + direction * 10, 30, 900)
-      const width = galleryRef.current.clientWidth
-      const floorCount = Math.floor(width / currentZoom)
-      const floorZoom = Math.floor(width / (floorCount - direction) - 0.01)
-      return clamp(floorZoom, 30, 900)
+      return computeZoom(galleryRef.current.clientWidth, currentZoom, direction)
     })
   }
+
+  const zoomIsAdjusted = galleryRef.current
+    ? zoom === computeZoom(galleryRef.current.clientWidth, zoom, 0)
+    : false
 
   if (authenticated === null)
     return (
@@ -322,20 +322,32 @@ export function App() {
               onChange={(event) => setZoom(Number(event.target.value))}
             />
             <span className="mx-1 grid gap-px">
-              <IconButton
-                className="size-5 border-[#42473d] text-xs"
-                title="Increase tile size"
-                onClick={() => adjustZoom(1)}
-              >
-                +
-              </IconButton>
-              <IconButton
-                className="size-5 border-[#42473d] text-xs"
-                title="Decrease tile size"
-                onClick={() => adjustZoom(-1)}
-              >
-                -
-              </IconButton>
+              {zoomIsAdjusted ? (
+                <>
+                  <IconButton
+                    className="size-5 border-[#42473d] text-xs"
+                    title="Increase tile size"
+                    onClick={() => adjustZoom(1)}
+                  >
+                    +
+                  </IconButton>
+                  <IconButton
+                    className="size-5 border-[#42473d] text-xs"
+                    title="Decrease tile size"
+                    onClick={() => adjustZoom(-1)}
+                  >
+                    -
+                  </IconButton>
+                </>
+              ) : (
+                <IconButton
+                  className="size-5 border-[#42473d] text-xs"
+                  title="Adjust tile size"
+                  onClick={() => adjustZoom(0)}
+                >
+                  o
+                </IconButton>
+              )}
             </span>
             <output className="font-['DM_Mono'] text-[11px] text-[#cfdc6a]">{zoom}px</output>
           </label>
@@ -425,4 +437,9 @@ export function App() {
       </div>
     </div>
   )
+}
+function computeZoom(width: number, currentZoom: number, direction: number) {
+  const floorCount = Math.floor(width / currentZoom)
+  const floorZoom = Math.floor(width / (floorCount - direction) - 0.01)
+  return clamp(floorZoom, 30, 900)
 }

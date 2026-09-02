@@ -13,7 +13,7 @@ import {
 import { createAuth } from "./auth"
 import { errorMessage } from "./errors"
 import { resolveReadyInstance } from "./instance-service"
-import type { JobService } from "./job-service"
+import { paginateJobs, type JobService } from "./job-service"
 import { readLikedImageIds, writeLikedImageIds } from "./storage"
 
 const defaultNegative = "score_4, score_5, score_6, worst quality, low quality, blurry"
@@ -117,7 +117,25 @@ export function registerRoutes(app: Hono, jobs: JobService) {
     return c.json({ started: true }, 202)
   })
 
-  app.get("/api/jobs", async (c) => c.json(await jobs.list()))
+  app.get("/api/jobs", async (c) => {
+    const query = c.req.query()
+    const pageValue = query.page
+    const pageSizeValue = query.pageSize
+    const cursor = query.cursor
+    if (pageValue === undefined && pageSizeValue === undefined && cursor === undefined)
+      return c.json(await jobs.list())
+
+    const page = pageValue === undefined ? 1 : Number(pageValue)
+    const pageSize = pageSizeValue === undefined ? undefined : Number(pageSizeValue)
+    if (!Number.isInteger(page) || page < 1)
+      return c.json({ error: "page must be a positive integer" }, 400)
+    if (pageSize !== undefined && (!Number.isInteger(pageSize) || pageSize < 1))
+      return c.json({ error: "pageSize must be a positive integer" }, 400)
+
+    const result = paginateJobs(await jobs.list(), { page, pageSize, cursor })
+    if (!result) return c.json({ error: "cursor does not identify a job" }, 400)
+    return c.json(result)
+  })
   app.get("/api/likes", async (c) => c.json({ ids: [...(await likes())] }))
   app.put("/api/likes/:id", async (c) => {
     const id = c.req.param("id")

@@ -11,11 +11,11 @@ const jobs = createJobService()
 
 const auth = registerRoutes(app, jobs)
 await auth.load()
-startInstanceSweep(idleMinutes)
+// startInstanceSweep(idleMinutes)
 
 Bun.serve({ port, fetch: app.fetch })
 console.log(`Image generation server listening on http://localhost:${port}`)
-console.log(`Sweeping idle (${idleMinutes}m) and stuck-creating instances every 30 seconds.`)
+// console.log(`Sweeping idle (${idleMinutes}m) and stuck-creating instances every 30 seconds.`)
 
 function startInstanceSweep(idleMinutes: number): void {
   const sweep = () =>

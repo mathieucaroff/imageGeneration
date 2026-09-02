@@ -45,9 +45,14 @@ export function configColor(config: Config) {
 }
 
 export function buildGalleryTiles(jobs: Job[]): GalleryTile[] {
+  const statusOrder = { queued: 0, running: 1, completed: 2, failed: 3 }
   const visibleJobs = jobs
     .filter((job) => job.status !== "failed")
-    .toSorted((first, second) => Date.parse(second.createdAt) - Date.parse(first.createdAt))
+    .toSorted(
+      (first, second) =>
+        statusOrder[first.status] - statusOrder[second.status] ||
+        Date.parse(second.createdAt) - Date.parse(first.createdAt),
+    )
   const runs: Job[][] = []
   for (const job of visibleJobs) {
     const previousRun = runs.at(-1)

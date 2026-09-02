@@ -63,7 +63,7 @@ export function App() {
   const [generationPanelRetracted, setGenerationPanelRetracted] = useState(false)
   const [instances, setInstances] = useState<Instance[]>([])
   const [jobs, setJobs] = useState<Job[]>([])
-  const [jobsLoaded, setJobsLoaded] = useState(false)
+  const [firstJobsLoaded, setFirstJobsLoaded] = useState(false)
   const [lastPreview, setLastPreview] = useState<GalleryPreview>()
   const [now, setNow] = useState(Date.now())
   const [previewToOpen, setPreviewToOpen] = useState<GalleryPreview>()
@@ -80,9 +80,11 @@ export function App() {
   }
 
   async function refresh() {
-    api<Job[]>("/jobs").then((nextJobs) => {
+    let url = "/jobs"
+    if (!firstJobsLoaded) url += "?pageSize=100"
+    api<Job[]>(url).then((nextJobs) => {
       setJobs(nextJobs)
-      setJobsLoaded(true)
+      setFirstJobsLoaded(true)
     })
     const nextInstances = await api<Instance[]>("/instances")
     setInstances(nextInstances)
@@ -91,6 +93,10 @@ export function App() {
       if (ready) setInstanceId(ready.id)
     }
   }
+  useEffect(() => {
+    // Trigger a refresh after the 100 jobs of the first refresh have been loaded
+    if (firstJobsLoaded) void refresh()
+  }, [firstJobsLoaded])
   useEffect(() => {
     api<{ authenticated: boolean; username?: string; readOnly?: boolean }>("/auth/session")
       .then((data) => {
@@ -422,7 +428,7 @@ export function App() {
           </div>
           <Gallery
             jobs={jobs}
-            jobsLoaded={jobsLoaded}
+            jobsLoaded={firstJobsLoaded}
             now={now}
             zoom={zoom}
             onRefresh={refresh}

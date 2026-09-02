@@ -12,6 +12,7 @@ import { CopyImageButton } from "./gallery/CopyImageButton"
 import { GalleryNavigation } from "./gallery/GalleryNavigation"
 import { ImageTile } from "./gallery/ImageTile"
 import { buildGalleryTiles } from "./gallery/model"
+import { clamp } from "./utils"
 
 type TileDisplay = "both" | "config" | "image"
 type ConfigPosition = "top" | "bottom"
@@ -50,15 +51,36 @@ export function Gallery({
   const [search, setSearch] = useState("")
   const [tileDisplay, setTileDisplay] = useState<TileDisplay>("both")
   const [configPosition, setConfigPosition] = useState<ConfigPosition>("bottom")
+  const [gallerySize, setGallerySize] = useState<number | null>(100)
+
   const visibleJobs = useMemo(() => {
     const components = search.trim().split(/\s+/).filter(Boolean)
+    const negatives = components
+      .filter((component) => component.startsWith("-"))
+      .map((component) => component.slice(1))
+    const positives = components.filter((component) => !component.startsWith("-"))
     return jobs.filter(
       (job) =>
-        (!likedOnly || likedImageIds.has(job.id)) &&
-        components.every((component) => job.config.prompt.includes(component)),
+        (likedOnly ? likedImageIds.has(job.id) : true) &&
+        positives.every((component) => job.config.prompt.includes(component)) &&
+        negatives.every((component) => !job.config.prompt.includes(component)),
     )
   }, [jobs, likedImageIds, likedOnly, search])
-  const tiles = useMemo(() => buildGalleryTiles(visibleJobs), [visibleJobs])
+
+  const thresholdTile = useMemo(() => {
+    if (gallerySize === null) return null
+    const thresholdIndex = clamp(0, visibleJobs.length - 1, gallerySize - 1)
+    return visibleJobs[thresholdIndex] ?? null
+  }, [gallerySize, likedOnly, search]) // visibleJobs intentionally omitted to avoid unwanted updates
+
+  const cutVisibleJobs = useMemo(() => {
+    if (!thresholdTile) return visibleJobs
+    const thresholdIndex = visibleJobs.findIndex((job) => job.id === thresholdTile.id)
+    return visibleJobs.slice(0, thresholdIndex + 1)
+  }, [visibleJobs, thresholdTile])
+
+  const tiles = useMemo(() => buildGalleryTiles(cutVisibleJobs), [cutVisibleJobs])
+
   const chronologicalTiles = useMemo(() => {
     const positionedTiles =
       configPosition === "top"
@@ -80,6 +102,7 @@ export function Gallery({
       )
       .toReversed()
   }, [configPosition, tileDisplay, tiles])
+
   const selectedTileIndex = selectedTile
     ? tiles.findIndex((tile) => tile.id === selectedTile.id)
     : -1
@@ -157,11 +180,35 @@ export function Gallery({
           <h2 className="mt-2 text-[25px] font-bold tracking-tight">
             Generations{" "}
             <span className="ml-1 font-['DM_Mono'] text-xs text-[#8d9286]">
-              {jobs.filter((job) => job.status !== "failed").length}
+              <span className="whitespace-nowrap">TOTAL {jobs.length}</span>
+              {" - "}
+              <span className="whitespace-nowrap">FILTERED {visibleJobs.length}</span>
+
+              {gallerySize && (
+                <>
+                  {" - "}
+                  <span className="whitespace-nowrap">
+                    REAL GALLERY SIZE {cutVisibleJobs.length}
+                  </span>
+                </>
+              )}
             </span>
           </h2>
         </div>
         <div className="flex items-center gap-3">
+          <Select
+            aria-label="Configuration tile position"
+            className="h-8 border border-[#42473d] bg-[#20231f] px-2 text-xs text-[#d7d8ce] outline-none focus:border-[#cfdc6a]"
+            value={gallerySize ?? ""}
+            onChange={(event) => setGallerySize(Number(event.target.value) || null)}
+          >
+            <option value="">Set gallery size</option>
+            {[100, 300, 1000, 3000, 10_000, 30_000, 100_000].map((value) => (
+              <option key={value} value={value}>
+                {value.toLocaleString("fr-FR").replace(/^(\d)\s/, "$1")}
+              </option>
+            ))}
+          </Select>
           <Select
             aria-label="Configuration tile position"
             className="h-8 border border-[#42473d] bg-[#20231f] px-2 text-xs text-[#d7d8ce] outline-none focus:border-[#cfdc6a]"

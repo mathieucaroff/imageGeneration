@@ -25,6 +25,8 @@ export function ResponsiveImage({
   return (
     <img
       className={className}
+      decoding="async"
+      loading="lazy"
       src={thumbnailUrl}
       srcSet={[thumbnailUrl && `${thumbnailUrl} 350w`, imageUrl && `${imageUrl} ${width}w`]
         .filter(Boolean)

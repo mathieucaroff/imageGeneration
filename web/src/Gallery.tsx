@@ -172,7 +172,7 @@ export function Gallery({
 
   return (
     <main className="min-w-0 px-3 py-7 sm:px-6 md:px-8 md:py-10">
-      <div className="mb-6 flex items-end justify-between gap-5">
+      <div className="mb-6 flex flex-wrap items-end justify-between gap-5">
         <div>
           <div className="font-['DM_Mono'] text-[10px] tracking-[.14em] text-[#8d9286]">
             OUTPUT ARCHIVE
@@ -195,7 +195,7 @@ export function Gallery({
             </span>
           </h2>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center justify-end gap-3">
           <Select
             aria-label="Configuration tile position"
             className="h-8 border border-[#42473d] bg-[#20231f] px-2 text-xs text-[#d7d8ce] outline-none focus:border-[#cfdc6a]"

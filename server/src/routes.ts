@@ -122,9 +122,6 @@ export function registerRoutes(app: Hono, jobs: JobService) {
     const pageValue = query.page
     const pageSizeValue = query.pageSize
     const cursor = query.cursor
-    if (pageValue === undefined && pageSizeValue === undefined && cursor === undefined)
-      return c.json(await jobs.list())
-
     const page = pageValue === undefined ? 1 : Number(pageValue)
     const pageSize = pageSizeValue === undefined ? undefined : Number(pageSizeValue)
     if (!Number.isInteger(page) || page < 1)

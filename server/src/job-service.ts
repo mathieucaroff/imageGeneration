@@ -5,7 +5,14 @@ import { recordActivity } from "../../lib/history"
 import { withScoreTags } from "../../lib/pony"
 import { errorMessage } from "./errors"
 import { resolveReadyInstance } from "./instance-service"
-import { imageName, listCompletedJobs, publicUrlList, upload } from "./storage"
+import {
+  imageName,
+  listCompletedJobs,
+  listCompletedJobsPage,
+  publicUrlList,
+  recordCompletedJob,
+  upload,
+} from "./storage"
 
 type JobListener = (job: Job & { position?: number }) => void
 
@@ -68,6 +75,7 @@ export function createJobService() {
     )
     await upload(thumbnailKey, thumbnail, "image/webp")
     await upload(name, image, "image/webp")
+    await recordCompletedJob(name.replace(/--pony\.webp$/, ""))
     if (jobs.get(job.id)?.status === "failed") return
     job.status = "completed"
     job.id = name.replace(/--pony\.webp$/, "")
@@ -115,6 +123,27 @@ export function createJobService() {
         (first, second) => Date.parse(second.createdAt) - Date.parse(first.createdAt),
       )
     },
+    async listPage({
+      page,
+      pageSize,
+      cursor,
+    }: {
+      page: number
+      pageSize?: number | undefined
+      cursor?: string | undefined
+    }) {
+      if (pageSize === undefined) return { jobs: await this.list(), page, cursor }
+      const completed = await listCompletedJobsPage({
+        cursor,
+        limit: pageSize,
+        offset: (page - 1) * pageSize,
+      })
+      const activeJobs =
+        cursor === undefined && page === 1
+          ? [...jobs.values()].filter((job) => job.status !== "completed").map(publicJob)
+          : []
+      return { ...completed, jobs: [...activeJobs, ...completed.jobs], page, pageSize, cursor }
+    },
     subscribe(listener: JobListener) {
       listeners.add(listener)
       return () => listeners.delete(listener)
@@ -156,38 +185,3 @@ export function createJobService() {
 }
 
 export type JobService = ReturnType<typeof createJobService>
-
-export type JobsPage = {
-  jobs: Job[]
-  page: number
-  pageSize?: number | undefined
-  cursor?: string | undefined
-  nextCursor?: string | undefined
-  total: number
-}
-
-export function paginateJobs(
-  jobs: Job[],
-  {
-    page,
-    pageSize,
-    cursor,
-  }: { page: number; pageSize?: number | undefined; cursor?: string | undefined },
-): JobsPage | undefined {
-  const cursorIndex = cursor === undefined ? 0 : jobs.findIndex((job) => job.id === cursor)
-  if (cursorIndex < 0) return undefined
-  const start = cursorIndex + (page - 1) * (pageSize ?? jobs.length)
-  const pageJobs = pageSize === undefined ? jobs.slice(start) : jobs.slice(start, start + pageSize)
-  const nextCursor =
-    pageSize !== undefined && start + pageSize < jobs.length
-      ? jobs[start + pageSize]?.id
-      : undefined
-  return {
-    jobs: pageJobs,
-    page,
-    pageSize,
-    cursor,
-    nextCursor,
-    total: jobs.length - cursorIndex,
-  }
-}

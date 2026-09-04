@@ -23,7 +23,7 @@ export function GalleryTileFrame({
 }) {
   return (
     <article
-      className={`group relative aspect-square w-[min(var(--tile-size),100%)] overflow-hidden ${className}`}
+      className={`group relative aspect-square w-[min(var(--tile-size),calc(100dvw-48px))] overflow-hidden ${className}`}
       style={{ ...style, borderColor: color }}
     >
       <button

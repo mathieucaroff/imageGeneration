@@ -10,6 +10,12 @@ web:
     cd web && bunx vite
 build:
     cd web && bunx tsc -b && bunx vite build
+tsc:
+    bunx tsc -b
+tscserver:
+    cd server && bunx tsc -b
+tscweb:
+    cd web && bunx tsc -b
 start:
     cd server && bun run --env-file=../.env src/server.ts
 lint:

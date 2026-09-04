@@ -13,7 +13,7 @@ import {
 import { createAuth } from "./auth"
 import { errorMessage } from "./errors"
 import { resolveReadyInstance } from "./instance-service"
-import { paginateJobs, type JobService } from "./job-service"
+import type { JobService } from "./job-service"
 import { readLikedImageIds, writeLikedImageIds } from "./storage"
 
 const defaultNegative = "score_4, score_5, score_6, worst quality, low quality, blurry"
@@ -129,9 +129,7 @@ export function registerRoutes(app: Hono, jobs: JobService) {
     if (pageSize !== undefined && (!Number.isInteger(pageSize) || pageSize < 1))
       return c.json({ error: "pageSize must be a positive integer" }, 400)
 
-    const result = paginateJobs(await jobs.list(), { page, pageSize, cursor })
-    if (!result) return c.json({ error: "cursor does not identify a job" }, 400)
-    return c.json(result)
+    return c.json(await jobs.listPage({ page, pageSize, cursor }))
   })
   app.get("/api/likes", async (c) => c.json({ ids: [...(await likes())] }))
   app.put("/api/likes/:id", async (c) => {

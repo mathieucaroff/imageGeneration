@@ -247,6 +247,7 @@ export function Gallery({
           </Button>
         </div>
       </div>
+
       {chronologicalTiles.length > 0 && (
         <div
           className="flex flex-row-reverse flex-wrap-reverse pt-7"

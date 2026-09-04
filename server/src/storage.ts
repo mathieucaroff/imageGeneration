@@ -7,6 +7,9 @@ import {
 
 const configCache = new Map<string, JobConfig>()
 const likedImageIdsKey = "liked-image-ids.json"
+const completedJobsIndexKey = "completed-jobs.json"
+type CompletedJobIndexEntry = { id: string; createdAt: string }
+let completedJobsIndex: Promise<CompletedJobIndexEntry[]> | undefined
 
 function client() {
   const endpoint = process.env.S3_ENDPOINT
@@ -62,6 +65,18 @@ export async function writeLikedImageIds(ids: Iterable<string>): Promise<void> {
   )
 }
 
+async function readConfig(key: string): Promise<JobConfig> {
+  const cached = configCache.get(key)
+  if (cached) return cached
+  const result = await client().send(
+    new GetObjectCommand({ Bucket: process.env.S3_BUCKET, Key: key }),
+  )
+  if (!result.Body) throw new Error(`Configuration ${key} has no content`)
+  const config = JSON.parse(await result.Body.transformToString()) as JobConfig
+  configCache.set(key, config)
+  return config
+}
+
 async function listKeys(): Promise<string[]> {
   const keys: string[] = []
   let continuationToken: string | undefined
@@ -78,50 +93,102 @@ async function listKeys(): Promise<string[]> {
   return keys
 }
 
-async function readConfig(key: string): Promise<JobConfig> {
-  const cached = configCache.get(key)
-  if (cached) return cached
-  const result = await client().send(
-    new GetObjectCommand({ Bucket: process.env.S3_BUCKET, Key: key }),
-  )
-  if (!result.Body) throw new Error(`Configuration ${key} has no content`)
-  const config = JSON.parse(await result.Body.transformToString()) as JobConfig
-  configCache.set(key, config)
-  return config
-}
-
 function timestampFromImageKey(key: string): string | undefined {
   const match = key.match(/^(\d{4}-\d{2}-\d{2}T\d{2})-(\d{2})-(\d{2}Z)--pony\.webp$/)
   return match ? `${match[1]}:${match[2]}:${match[3]}` : undefined
 }
 
-export async function listCompletedJobs(): Promise<Job[]> {
+async function buildCompletedJobsIndex(): Promise<CompletedJobIndexEntry[]> {
   const keys = new Set(await listKeys())
-  for (const key of configCache.keys()) {
-    if (!keys.has(key)) configCache.delete(key)
+  const index = [...keys].flatMap((imageKey) => {
+    const createdAt = timestampFromImageKey(imageKey)
+    const thumbnailKey = imageKey.replace(/\.webp$/, ".thumb.webp")
+    const configKey = imageKey.replace(/\.webp$/, ".config")
+    return createdAt && keys.has(thumbnailKey) && keys.has(configKey)
+      ? [{ id: imageKey.replace(/--pony\.webp$/, ""), createdAt }]
+      : []
+  })
+  index.sort((first, second) => Date.parse(second.createdAt) - Date.parse(first.createdAt))
+  await upload(completedJobsIndexKey, Buffer.from(JSON.stringify(index)), "application/json")
+  return index
+}
+
+async function readCompletedJobsIndex(): Promise<CompletedJobIndexEntry[]> {
+  try {
+    const result = await client().send(
+      new GetObjectCommand({ Bucket: process.env.S3_BUCKET, Key: completedJobsIndexKey }),
+    )
+    if (!result.Body) return buildCompletedJobsIndex()
+    const value = JSON.parse(await result.Body.transformToString())
+    if (
+      Array.isArray(value) &&
+      value.every(
+        (entry): entry is CompletedJobIndexEntry =>
+          typeof entry?.id === "string" && typeof entry?.createdAt === "string",
+      )
+    )
+      return value
+    return buildCompletedJobsIndex()
+  } catch (error) {
+    if (error instanceof Error && error.name === "NoSuchKey") return buildCompletedJobsIndex()
+    throw error
   }
-  const imageKeys = [...keys].filter((key) => timestampFromImageKey(key))
+}
+
+function getCompletedJobsIndex() {
+  return (completedJobsIndex ??= readCompletedJobsIndex())
+}
+
+export async function recordCompletedJob(id: string): Promise<void> {
+  const createdAt = timestampFromImageKey(`${id}--pony.webp`)
+  if (!createdAt) throw new Error(`Invalid completed job ID: ${id}`)
+  const index = await getCompletedJobsIndex()
+  const nextIndex = [{ id, createdAt }, ...index.filter((entry) => entry.id !== id)]
+  await upload(completedJobsIndexKey, Buffer.from(JSON.stringify(nextIndex)), "application/json")
+  completedJobsIndex = Promise.resolve(nextIndex)
+}
+
+export type CompletedJobsPage = {
+  jobs: Job[]
+  nextCursor?: string | undefined
+}
+
+export async function listCompletedJobsPage({
+  cursor,
+  limit,
+  offset = 0,
+}: {
+  cursor?: string | undefined
+  limit?: number | undefined
+  offset?: number | undefined
+} = {}): Promise<CompletedJobsPage> {
+  const index = await getCompletedJobsIndex()
+  const cursorIndex = cursor === undefined ? -1 : index.findIndex((entry) => entry.id === cursor)
+  const start = cursorIndex + 1 + offset
+  const end = limit === undefined ? undefined : start + limit
+  const entries = index.slice(start, end)
   const jobs = await Promise.all(
-    imageKeys.map(async (imageKey) => {
-      const timestamp = timestampFromImageKey(imageKey)!
-      const id = imageKey.replace(/--pony\.webp$/, "")
+    entries.map(async ({ id, createdAt }) => {
+      const imageKey = `${id}--pony.webp`
       const thumbnailKey = imageKey.replace(/\.webp$/, ".thumb.webp")
-      const configKey = imageKey.replace(/\.webp$/, ".config")
-      if (!keys.has(thumbnailKey) || !keys.has(configKey)) return undefined
       return {
         id,
-        config: await readConfig(configKey),
+        config: await readConfig(imageKey.replace(/\.webp$/, ".config")),
         status: "completed" as const,
-        createdAt: timestamp,
-        startedAt: timestamp,
-        finishedAt: timestamp,
+        createdAt,
+        startedAt: createdAt,
+        finishedAt: createdAt,
         imageKey,
         imageUrls: publicUrlList(imageKey),
         thumbnailUrls: publicUrlList(thumbnailKey),
       }
     }),
   )
-  return jobs.flatMap((job) => (job ? [job] : []))
+  return { jobs, nextCursor: end !== undefined && end < index.length ? jobs.at(-1)?.id : undefined }
+}
+
+export async function listCompletedJobs(): Promise<Job[]> {
+  return (await listCompletedJobsPage()).jobs
 }
 
 export function imageName(): string {
